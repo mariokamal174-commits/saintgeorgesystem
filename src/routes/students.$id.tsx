@@ -1,0 +1,122 @@
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { AppShell } from "@/components/app-shell";
+import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { ArrowRight, Receipt } from "lucide-react";
+
+export const Route = createFileRoute("/students/$id")({
+  head: () => ({ meta: [{ title: "ملف الطالب" }] }),
+  component: () => <AppShell><StudentDetail /></AppShell>,
+});
+
+function StudentDetail() {
+  const { id } = Route.useParams();
+  const { data, refetch } = useQuery({
+    queryKey: ["student", id],
+    queryFn: async () => {
+      const [s, inst, rec] = await Promise.all([
+        supabase.from("students").select("*").eq("id", id).maybeSingle(),
+        supabase.from("installments").select("*").eq("student_id", id).order("due_date"),
+        supabase.from("receipts").select("*").eq("student_id", id).order("created_at", { ascending: false }),
+      ]);
+      return { student: s.data, installments: inst.data ?? [], receipts: rec.data ?? [] };
+    },
+  });
+
+  useEffect(() => {
+    const ch = supabase.channel(`student-${id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "students", filter: `id=eq.${id}` }, () => refetch())
+      .on("postgres_changes", { event: "*", schema: "public", table: "receipts", filter: `student_id=eq.${id}` }, () => refetch())
+      .on("postgres_changes", { event: "*", schema: "public", table: "installments", filter: `student_id=eq.${id}` }, () => refetch())
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [id, refetch]);
+
+  if (!data?.student) return <div className="text-center text-muted-foreground py-12">جاري التحميل...</div>;
+  const s = data.student;
+  const fmt = (n: number) => new Intl.NumberFormat("ar-EG").format(Math.round(n));
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-3">
+          <Link to="/students"><Button variant="ghost" size="sm"><ArrowRight className="h-4 w-4" /></Button></Link>
+          <div>
+            <h1 className="text-2xl font-bold">{s.full_name}</h1>
+            <p className="text-sm text-muted-foreground">{s.student_code ?? "بدون كود"} · {s.national_id ?? "بدون رقم قومي"}</p>
+          </div>
+        </div>
+        <Link to="/receipts/new" search={{ studentId: id }}>
+          <Button><Receipt className="ml-2 h-4 w-4" />إضافة إيصال</Button>
+        </Link>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <StatCard label="إجمالي المستحق" value={fmt(Number(s.total_due))} />
+        <StatCard label="إجمالي المدفوع" value={fmt(Number(s.total_paid))} tone="success" />
+        <StatCard label="المتبقي" value={fmt(Number(s.remaining_balance))} tone={Number(s.remaining_balance) > 0 ? "warning" : "success"} />
+        <Card><CardContent className="p-4">
+          <div className="text-sm text-muted-foreground mb-2">الحالة</div>
+          {s.payment_status === "paid" && <Badge className="bg-success text-success-foreground text-base">مسدد بالكامل</Badge>}
+          {s.payment_status === "partial" && <Badge className="bg-warning text-warning-foreground text-base">دفعة جزئية</Badge>}
+          {s.payment_status === "unpaid" && <Badge variant="destructive" className="text-base">غير مسدد</Badge>}
+        </CardContent></Card>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader><CardTitle>تفاصيل الأقساط</CardTitle></CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <Row label="القسط الأول" value={fmt(Number(s.first_installment))} />
+            <Row label="القسط الثاني" value={fmt(Number(s.second_installment))} />
+            <Row label="أقساط سنوات سابقة" value={fmt(Number(s.previous_installments))} />
+            <Row label="رسوم أخرى" value={fmt(Number(s.other_fees))} />
+            <div className="border-t pt-2 mt-2 flex justify-between font-bold">
+              <span>الإجمالي</span><span>{fmt(Number(s.total_due))}</span>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle>الإيصالات</CardTitle></CardHeader>
+          <CardContent>
+            {data.receipts.length === 0 ? (
+              <p className="text-sm text-muted-foreground">لا توجد إيصالات بعد</p>
+            ) : (
+              <div className="space-y-2">
+                {data.receipts.map(r => (
+                  <div key={r.id} className="flex items-center justify-between p-2 rounded-md bg-muted/50">
+                    <div>
+                      <div className="font-medium text-sm">إيصال #{r.receipt_number ?? r.id.slice(0,8)}</div>
+                      <div className="text-xs text-muted-foreground">{r.receipt_date ?? "—"}</div>
+                    </div>
+                    <div className="text-left">
+                      <div className="font-bold">{fmt(Number(r.amount))}</div>
+                      {r.status === "approved" && <Badge variant="outline" className="text-success border-success">معتمد</Badge>}
+                      {r.status === "pending" && <Badge variant="outline">قيد المراجعة</Badge>}
+                      {r.status === "rejected" && <Badge variant="destructive">مرفوض</Badge>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function StatCard({ label, value, tone }: { label: string; value: string; tone?: "success" | "warning" }) {
+  const cls = tone === "success" ? "text-success" : tone === "warning" ? "text-warning" : "";
+  return <Card><CardContent className="p-4">
+    <div className="text-sm text-muted-foreground">{label}</div>
+    <div className={`text-2xl font-bold mt-1 ${cls}`}>{value}</div>
+  </CardContent></Card>;
+}
+function Row({ label, value }: { label: string; value: string }) {
+  return <div className="flex justify-between"><span className="text-muted-foreground">{label}</span><span>{value}</span></div>;
+}
