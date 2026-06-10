@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as StudentsIndexRouteImport } from './routes/students.index'
+import { Route as StudentsNewRouteImport } from './routes/students.new'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -28,34 +29,43 @@ const StudentsIndexRoute = StudentsIndexRouteImport.update({
   path: '/students/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const StudentsNewRoute = StudentsNewRouteImport.update({
+  id: '/students/new',
+  path: '/students/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/students/new': typeof StudentsNewRoute
   '/students/': typeof StudentsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/students/new': typeof StudentsNewRoute
   '/students': typeof StudentsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/students/new': typeof StudentsNewRoute
   '/students/': typeof StudentsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/students/'
+  fullPaths: '/' | '/auth' | '/students/new' | '/students/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/students'
-  id: '__root__' | '/' | '/auth' | '/students/'
+  to: '/' | '/auth' | '/students/new' | '/students'
+  id: '__root__' | '/' | '/auth' | '/students/new' | '/students/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRoute
+  StudentsNewRoute: typeof StudentsNewRoute
   StudentsIndexRoute: typeof StudentsIndexRoute
 }
 
@@ -82,12 +92,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StudentsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/students/new': {
+      id: '/students/new'
+      path: '/students/new'
+      fullPath: '/students/new'
+      preLoaderRoute: typeof StudentsNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRoute,
+  StudentsNewRoute: StudentsNewRoute,
   StudentsIndexRoute: StudentsIndexRoute,
 }
 export const routeTree = rootRouteImport
