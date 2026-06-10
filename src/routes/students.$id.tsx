@@ -112,6 +112,68 @@ function StudentDetail() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader><CardTitle>أقساط مفصلة</CardTitle></CardHeader>
+        <CardContent>
+          {data.installments.length === 0 ? (
+            <p className="text-sm text-muted-foreground">لا توجد أقساط مسجلة</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="text-muted-foreground">
+                  <tr>
+                    <th className="px-3 py-2 text-right">القسط</th>
+                    <th className="px-3 py-2 text-right">المبلغ</th>
+                    <th className="px-3 py-2 text-right">تاريخ الاستحقاق</th>
+                    <th className="px-3 py-2 text-right">الحالة</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.installments.map((i) => (
+                    <tr key={i.id} className="border-t">
+                      <td className="px-3 py-2 font-medium">{i.label}</td>
+                      <td className="px-3 py-2">{fmt(Number(i.amount))}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{i.due_date ?? "—"}</td>
+                      <td className="px-3 py-2">
+                        {canEditInstallments ? (
+                          <Select
+                            value={i.status}
+                            onValueChange={async (v) => {
+                              const { error } = await supabase.from("installments")
+                                .update({ status: v as "paid" | "partial" | "unpaid" })
+                                .eq("id", i.id);
+                              if (error) toast.error(error.message);
+                              else {
+                                toast.success("تم تحديث حالة القسط");
+                                logActivity("update", "installment", i.id, { status: v });
+                                refetch();
+                              }
+                            }}
+                          >
+                            <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="paid">مدفوع</SelectItem>
+                              <SelectItem value="partial">جزئي</SelectItem>
+                              <SelectItem value="unpaid">غير مدفوع</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <>
+                            {i.status === "paid" && <Badge className="bg-success text-success-foreground">مدفوع</Badge>}
+                            {i.status === "partial" && <Badge className="bg-warning text-warning-foreground">جزئي</Badge>}
+                            {i.status === "unpaid" && <Badge variant="destructive">غير مدفوع</Badge>}
+                          </>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
