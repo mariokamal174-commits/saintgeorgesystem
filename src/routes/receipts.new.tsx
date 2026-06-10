@@ -49,14 +49,16 @@ function NewReceipt() {
     const parsed = schema.safeParse(form);
     if (!parsed.success) return toast.error("راجع البيانات");
     setLoading(true);
-    const { error } = await supabase.from("receipts").insert({
+    const { data, error } = await supabase.from("receipts").insert({
       ...parsed.data,
       receipt_number: parsed.data.receipt_number || null,
       receipt_date: parsed.data.receipt_date || null,
       status: "pending",
-    });
+    }).select("id").maybeSingle();
     setLoading(false);
     if (error) return toast.error(error.message);
+    const { logActivity } = await import("@/lib/audit");
+    await logActivity("create", "receipt", data?.id, { amount: parsed.data.amount });
     toast.success("تم إنشاء الإيصال — بانتظار الاعتماد");
     navigate({ to: "/receipts" });
   }

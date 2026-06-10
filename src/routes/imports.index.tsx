@@ -120,6 +120,8 @@ function Imports() {
     await supabase.from("student_imports").insert({
       rows_total: preview.rows.length, rows_inserted: inserted, rows_updated: updated, rows_skipped: skipped,
     });
+    const { logActivity } = await import("@/lib/audit");
+    await logActivity("import", "import", null, { inserted, updated, skipped, total: preview.rows.length });
     setImporting(false); setPreview(null);
     toast.success(`تم: ${inserted} إضافة · ${updated} تحديث · ${skipped} تخطي`);
   }
