@@ -39,13 +39,15 @@ function NewStudent() {
     const parsed = schema.safeParse(form);
     if (!parsed.success) return toast.error("راجع البيانات المدخلة");
     setLoading(true);
-    const { error } = await supabase.from("students").insert({
+    const { data, error } = await supabase.from("students").insert({
       ...parsed.data,
       student_code: parsed.data.student_code || null,
       national_id: parsed.data.national_id || null,
-    });
+    }).select("id").maybeSingle();
     setLoading(false);
     if (error) return toast.error(error.message);
+    const { logActivity } = await import("@/lib/audit");
+    await logActivity("create", "student", data?.id, { full_name: parsed.data.full_name });
     toast.success("تم إضافة الطالب");
     navigate({ to: "/students" });
   }
