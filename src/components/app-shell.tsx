@@ -2,7 +2,7 @@ import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/use-auth";
 import {
   GraduationCap, Users, Receipt, Upload, ShieldCheck,
-  LayoutDashboard, LogOut, Loader2,
+  LayoutDashboard, LogOut, Loader2, Activity,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -42,6 +42,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     { to: "/students", label: "الطلاب", icon: Users, show: true },
     { to: "/receipts", label: "الإيصالات", icon: Receipt, show: true },
     { to: "/imports", label: "استيراد ملفات", icon: Upload, show: true },
+    { to: "/activity", label: "سجل النشاط", icon: Activity, show: true },
     { to: "/admin", label: "إدارة المستخدمين", icon: ShieldCheck, show: isAdmin },
   ];
 
