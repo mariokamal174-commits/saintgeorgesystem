@@ -6,7 +6,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowRight, Receipt } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
+import { toast } from "sonner";
+import { logActivity } from "@/lib/audit";
 
 export const Route = createFileRoute("/students/$id")({
   head: () => ({ meta: [{ title: "ملف الطالب" }] }),
@@ -15,6 +19,8 @@ export const Route = createFileRoute("/students/$id")({
 
 function StudentDetail() {
   const { id } = Route.useParams();
+  const { isFinance, isAdmin } = useAuth();
+  const canEditInstallments = isFinance || isAdmin;
   const { data, refetch } = useQuery({
     queryKey: ["student", id],
     queryFn: async () => {
@@ -106,6 +112,68 @@ function StudentDetail() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader><CardTitle>أقساط مفصلة</CardTitle></CardHeader>
+        <CardContent>
+          {data.installments.length === 0 ? (
+            <p className="text-sm text-muted-foreground">لا توجد أقساط مسجلة</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="text-muted-foreground">
+                  <tr>
+                    <th className="px-3 py-2 text-right">القسط</th>
+                    <th className="px-3 py-2 text-right">المبلغ</th>
+                    <th className="px-3 py-2 text-right">تاريخ الاستحقاق</th>
+                    <th className="px-3 py-2 text-right">الحالة</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.installments.map((i) => (
+                    <tr key={i.id} className="border-t">
+                      <td className="px-3 py-2 font-medium">{i.label}</td>
+                      <td className="px-3 py-2">{fmt(Number(i.amount))}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{i.due_date ?? "—"}</td>
+                      <td className="px-3 py-2">
+                        {canEditInstallments ? (
+                          <Select
+                            value={i.status}
+                            onValueChange={async (v) => {
+                              const { error } = await supabase.from("installments")
+                                .update({ status: v as "paid" | "partial" | "unpaid" })
+                                .eq("id", i.id);
+                              if (error) toast.error(error.message);
+                              else {
+                                toast.success("تم تحديث حالة القسط");
+                                logActivity("update", "installment", i.id, { status: v });
+                                refetch();
+                              }
+                            }}
+                          >
+                            <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="paid">مدفوع</SelectItem>
+                              <SelectItem value="partial">جزئي</SelectItem>
+                              <SelectItem value="unpaid">غير مدفوع</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <>
+                            {i.status === "paid" && <Badge className="bg-success text-success-foreground">مدفوع</Badge>}
+                            {i.status === "partial" && <Badge className="bg-warning text-warning-foreground">جزئي</Badge>}
+                            {i.status === "unpaid" && <Badge variant="destructive">غير مدفوع</Badge>}
+                          </>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

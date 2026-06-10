@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, Plus } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -18,15 +19,25 @@ export const Route = createFileRoute("/students/")({
 function StudentsList() {
   const { isStudentAffairs, isAdmin } = useAuth();
   const [q, setQ] = useState("");
+  const [gradeId, setGradeId] = useState<string>("all");
   const [page, setPage] = useState(0);
   const PAGE = 25;
 
+  const { data: grades } = useQuery({
+    queryKey: ["grades-all"],
+    queryFn: async () => {
+      const { data } = await supabase.from("grades").select("id, name").order("name");
+      return data ?? [];
+    },
+  });
+
   const { data, refetch, isLoading } = useQuery({
-    queryKey: ["students", q, page],
+    queryKey: ["students", q, page, gradeId],
     queryFn: async () => {
       let qb = supabase.from("students").select("*, classes(name), grades(name)", { count: "exact" })
         .order("created_at", { ascending: false })
         .range(page * PAGE, page * PAGE + PAGE - 1);
+      if (gradeId !== "all") qb = qb.eq("grade_id", gradeId);
       if (q.trim()) {
         const term = `%${q.trim()}%`;
         qb = qb.or(`full_name.ilike.${term},student_code.ilike.${term},national_id.ilike.${term}`);
@@ -61,9 +72,18 @@ function StudentsList() {
       </div>
 
       <Card className="p-4">
-        <div className="relative">
-          <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input value={q} onChange={(e) => { setQ(e.target.value); setPage(0); }} placeholder="ابحث بالاسم أو الكود أو الرقم القومي..." className="pr-10" />
+        <div className="flex flex-col md:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input value={q} onChange={(e) => { setQ(e.target.value); setPage(0); }} placeholder="ابحث بالاسم أو الكود أو الرقم القومي..." className="pr-10" />
+          </div>
+          <Select value={gradeId} onValueChange={(v) => { setGradeId(v); setPage(0); }}>
+            <SelectTrigger className="md:w-64"><SelectValue placeholder="كل الصفوف" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">كل الصفوف</SelectItem>
+              {grades?.map(g => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
         </div>
       </Card>
 
