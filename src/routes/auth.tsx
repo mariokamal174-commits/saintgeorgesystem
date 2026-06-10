@@ -103,7 +103,7 @@ function AuthPage() {
                 </div>
                 <div className="space-y-2">
                   <Label>كلمة المرور</Label>
-                  <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} />
+                  <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
                 </div>
                 <div className="space-y-2">
                   <Label>القسم</Label>
