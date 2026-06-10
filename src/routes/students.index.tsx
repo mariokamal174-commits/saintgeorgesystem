@@ -24,7 +24,7 @@ function StudentsList() {
   const { data, refetch, isLoading } = useQuery({
     queryKey: ["students", q, page],
     queryFn: async () => {
-      let qb = supabase.from("students").select("*", { count: "exact" })
+      let qb = supabase.from("students").select("*, classes(name), grades(name)", { count: "exact" })
         .order("created_at", { ascending: false })
         .range(page * PAGE, page * PAGE + PAGE - 1);
       if (q.trim()) {
@@ -74,23 +74,27 @@ function StudentsList() {
               <tr>
                 <th className="px-4 py-3 text-right">الاسم</th>
                 <th className="px-4 py-3 text-right">الكود</th>
-                <th className="px-4 py-3 text-right">المستحق</th>
-                <th className="px-4 py-3 text-right">المدفوع</th>
+                <th className="px-4 py-3 text-right">الفصل</th>
+                <th className="px-4 py-3 text-right">القسط الأول</th>
+                <th className="px-4 py-3 text-right">القسط الثاني</th>
+                <th className="px-4 py-3 text-right">أقساط سابقة</th>
                 <th className="px-4 py-3 text-right">المتبقي</th>
                 <th className="px-4 py-3 text-right">الحالة</th>
               </tr>
             </thead>
             <tbody>
-              {isLoading && <tr><td colSpan={6} className="text-center py-8 text-muted-foreground">جاري التحميل...</td></tr>}
-              {!isLoading && data?.rows.length === 0 && <tr><td colSpan={6} className="text-center py-8 text-muted-foreground">لا يوجد طلاب</td></tr>}
-              {data?.rows.map((s) => (
+              {isLoading && <tr><td colSpan={8} className="text-center py-8 text-muted-foreground">جاري التحميل...</td></tr>}
+              {!isLoading && data?.rows.length === 0 && <tr><td colSpan={8} className="text-center py-8 text-muted-foreground">لا يوجد طلاب</td></tr>}
+              {data?.rows.map((s: any) => (
                 <tr key={s.id} className="border-t hover:bg-muted/50 cursor-pointer">
                   <td className="px-4 py-3">
                     <Link to="/students/$id" params={{ id: s.id }} className="font-medium hover:text-primary">{s.full_name}</Link>
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">{s.student_code ?? "—"}</td>
-                  <td className="px-4 py-3">{fmt(Number(s.total_due))}</td>
-                  <td className="px-4 py-3 text-success">{fmt(Number(s.total_paid))}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{s.classes?.name ?? s.grades?.name ?? "—"}</td>
+                  <td className="px-4 py-3">{fmt(Number(s.first_installment))}</td>
+                  <td className="px-4 py-3">{fmt(Number(s.second_installment))}</td>
+                  <td className="px-4 py-3">{fmt(Number(s.previous_installments))}</td>
                   <td className="px-4 py-3 font-medium">{fmt(Number(s.remaining_balance))}</td>
                   <td className="px-4 py-3">
                     {s.payment_status === "paid" && <Badge className="bg-success text-success-foreground">مسدد بالكامل</Badge>}
