@@ -14,6 +14,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as StudentsIndexRouteImport } from './routes/students.index'
 import { Route as ReceiptsIndexRouteImport } from './routes/receipts.index'
 import { Route as ImportsIndexRouteImport } from './routes/imports.index'
+import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as StudentsNewRouteImport } from './routes/students.new'
 import { Route as StudentsIdRouteImport } from './routes/students.$id'
 import { Route as ReceiptsNewRouteImport } from './routes/receipts.new'
@@ -43,6 +44,11 @@ const ImportsIndexRoute = ImportsIndexRouteImport.update({
   path: '/imports/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/admin/',
+  path: '/admin/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const StudentsNewRoute = StudentsNewRouteImport.update({
   id: '/students/new',
   path: '/students/new',
@@ -65,6 +71,7 @@ export interface FileRoutesByFullPath {
   '/receipts/new': typeof ReceiptsNewRoute
   '/students/$id': typeof StudentsIdRoute
   '/students/new': typeof StudentsNewRoute
+  '/admin/': typeof AdminIndexRoute
   '/imports/': typeof ImportsIndexRoute
   '/receipts/': typeof ReceiptsIndexRoute
   '/students/': typeof StudentsIndexRoute
@@ -75,6 +82,7 @@ export interface FileRoutesByTo {
   '/receipts/new': typeof ReceiptsNewRoute
   '/students/$id': typeof StudentsIdRoute
   '/students/new': typeof StudentsNewRoute
+  '/admin': typeof AdminIndexRoute
   '/imports': typeof ImportsIndexRoute
   '/receipts': typeof ReceiptsIndexRoute
   '/students': typeof StudentsIndexRoute
@@ -86,6 +94,7 @@ export interface FileRoutesById {
   '/receipts/new': typeof ReceiptsNewRoute
   '/students/$id': typeof StudentsIdRoute
   '/students/new': typeof StudentsNewRoute
+  '/admin/': typeof AdminIndexRoute
   '/imports/': typeof ImportsIndexRoute
   '/receipts/': typeof ReceiptsIndexRoute
   '/students/': typeof StudentsIndexRoute
@@ -98,6 +107,7 @@ export interface FileRouteTypes {
     | '/receipts/new'
     | '/students/$id'
     | '/students/new'
+    | '/admin/'
     | '/imports/'
     | '/receipts/'
     | '/students/'
@@ -108,6 +118,7 @@ export interface FileRouteTypes {
     | '/receipts/new'
     | '/students/$id'
     | '/students/new'
+    | '/admin'
     | '/imports'
     | '/receipts'
     | '/students'
@@ -118,6 +129,7 @@ export interface FileRouteTypes {
     | '/receipts/new'
     | '/students/$id'
     | '/students/new'
+    | '/admin/'
     | '/imports/'
     | '/receipts/'
     | '/students/'
@@ -129,6 +141,7 @@ export interface RootRouteChildren {
   ReceiptsNewRoute: typeof ReceiptsNewRoute
   StudentsIdRoute: typeof StudentsIdRoute
   StudentsNewRoute: typeof StudentsNewRoute
+  AdminIndexRoute: typeof AdminIndexRoute
   ImportsIndexRoute: typeof ImportsIndexRoute
   ReceiptsIndexRoute: typeof ReceiptsIndexRoute
   StudentsIndexRoute: typeof StudentsIndexRoute
@@ -171,6 +184,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ImportsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/': {
+      id: '/admin/'
+      path: '/admin'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/students/new': {
       id: '/students/new'
       path: '/students/new'
@@ -201,6 +221,7 @@ const rootRouteChildren: RootRouteChildren = {
   ReceiptsNewRoute: ReceiptsNewRoute,
   StudentsIdRoute: StudentsIdRoute,
   StudentsNewRoute: StudentsNewRoute,
+  AdminIndexRoute: AdminIndexRoute,
   ImportsIndexRoute: ImportsIndexRoute,
   ReceiptsIndexRoute: ReceiptsIndexRoute,
   StudentsIndexRoute: StudentsIndexRoute,
