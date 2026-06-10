@@ -6,7 +6,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowRight, Receipt } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
+import { toast } from "sonner";
+import { logActivity } from "@/lib/audit";
 
 export const Route = createFileRoute("/students/$id")({
   head: () => ({ meta: [{ title: "ملف الطالب" }] }),
