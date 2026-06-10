@@ -19,6 +19,8 @@ export const Route = createFileRoute("/students/$id")({
 
 function StudentDetail() {
   const { id } = Route.useParams();
+  const { isFinance, isAdmin } = useAuth();
+  const canEditInstallments = isFinance || isAdmin;
   const { data, refetch } = useQuery({
     queryKey: ["student", id],
     queryFn: async () => {
