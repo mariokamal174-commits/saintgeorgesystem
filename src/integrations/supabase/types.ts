@@ -14,16 +14,473 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      audit_logs: {
+        Row: {
+          action: string
+          after: Json | null
+          before: Json | null
+          created_at: string
+          entity: string
+          entity_id: string | null
+          id: string
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          after?: Json | null
+          before?: Json | null
+          created_at?: string
+          entity: string
+          entity_id?: string | null
+          id?: string
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          after?: Json | null
+          before?: Json | null
+          created_at?: string
+          entity?: string
+          entity_id?: string | null
+          id?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      classes: {
+        Row: {
+          academic_year: string | null
+          created_at: string
+          grade_id: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          academic_year?: string | null
+          created_at?: string
+          grade_id?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          academic_year?: string | null
+          created_at?: string
+          grade_id?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "classes_grade_id_fkey"
+            columns: ["grade_id"]
+            isOneToOne: false
+            referencedRelation: "grades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      delivery_tracking: {
+        Row: {
+          created_at: string
+          delivered: boolean
+          delivered_at: string | null
+          delivered_by: string | null
+          id: string
+          item: string
+          notes: string | null
+          student_id: string
+        }
+        Insert: {
+          created_at?: string
+          delivered?: boolean
+          delivered_at?: string | null
+          delivered_by?: string | null
+          id?: string
+          item: string
+          notes?: string | null
+          student_id: string
+        }
+        Update: {
+          created_at?: string
+          delivered?: boolean
+          delivered_at?: string | null
+          delivered_by?: string | null
+          id?: string
+          item?: string
+          notes?: string | null
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "delivery_tracking_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      grades: {
+        Row: {
+          created_at: string
+          id: string
+          level: number | null
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          level?: number | null
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          level?: number | null
+          name?: string
+        }
+        Relationships: []
+      }
+      installments: {
+        Row: {
+          amount: number
+          created_at: string
+          due_date: string | null
+          id: string
+          label: string
+          paid_amount: number
+          status: Database["public"]["Enums"]["payment_status"]
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          due_date?: string | null
+          id?: string
+          label: string
+          paid_amount?: number
+          status?: Database["public"]["Enums"]["payment_status"]
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          due_date?: string | null
+          id?: string
+          label?: string
+          paid_amount?: number
+          status?: Database["public"]["Enums"]["payment_status"]
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "installments_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          body: string | null
+          created_at: string
+          id: string
+          link: string | null
+          read: boolean
+          title: string
+          user_id: string | null
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          id?: string
+          link?: string | null
+          read?: boolean
+          title: string
+          user_id?: string | null
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          id?: string
+          link?: string | null
+          read?: boolean
+          title?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          department: Database["public"]["Enums"]["app_role"]
+          full_name: string
+          id: string
+          status: Database["public"]["Enums"]["account_status"]
+          updated_at: string
+          username: string
+        }
+        Insert: {
+          created_at?: string
+          department: Database["public"]["Enums"]["app_role"]
+          full_name: string
+          id: string
+          status?: Database["public"]["Enums"]["account_status"]
+          updated_at?: string
+          username: string
+        }
+        Update: {
+          created_at?: string
+          department?: Database["public"]["Enums"]["app_role"]
+          full_name?: string
+          id?: string
+          status?: Database["public"]["Enums"]["account_status"]
+          updated_at?: string
+          username?: string
+        }
+        Relationships: []
+      }
+      receipts: {
+        Row: {
+          amount: number
+          approved_by: string | null
+          created_at: string
+          file_url: string | null
+          id: string
+          installment_id: string | null
+          ocr_confidence: number | null
+          ocr_raw: Json | null
+          payer_name: string | null
+          receipt_date: string | null
+          receipt_number: string | null
+          status: Database["public"]["Enums"]["receipt_status"]
+          student_id: string
+          updated_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          amount?: number
+          approved_by?: string | null
+          created_at?: string
+          file_url?: string | null
+          id?: string
+          installment_id?: string | null
+          ocr_confidence?: number | null
+          ocr_raw?: Json | null
+          payer_name?: string | null
+          receipt_date?: string | null
+          receipt_number?: string | null
+          status?: Database["public"]["Enums"]["receipt_status"]
+          student_id: string
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          amount?: number
+          approved_by?: string | null
+          created_at?: string
+          file_url?: string | null
+          id?: string
+          installment_id?: string | null
+          ocr_confidence?: number | null
+          ocr_raw?: Json | null
+          payer_name?: string | null
+          receipt_date?: string | null
+          receipt_number?: string | null
+          status?: Database["public"]["Enums"]["receipt_status"]
+          student_id?: string
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "receipts_installment_id_fkey"
+            columns: ["installment_id"]
+            isOneToOne: false
+            referencedRelation: "installments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receipts_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      student_imports: {
+        Row: {
+          created_at: string
+          file_name: string | null
+          file_url: string | null
+          id: string
+          imported_by: string | null
+          rows_inserted: number | null
+          rows_skipped: number | null
+          rows_total: number | null
+          rows_updated: number | null
+          summary: Json | null
+        }
+        Insert: {
+          created_at?: string
+          file_name?: string | null
+          file_url?: string | null
+          id?: string
+          imported_by?: string | null
+          rows_inserted?: number | null
+          rows_skipped?: number | null
+          rows_total?: number | null
+          rows_updated?: number | null
+          summary?: Json | null
+        }
+        Update: {
+          created_at?: string
+          file_name?: string | null
+          file_url?: string | null
+          id?: string
+          imported_by?: string | null
+          rows_inserted?: number | null
+          rows_skipped?: number | null
+          rows_total?: number | null
+          rows_updated?: number | null
+          summary?: Json | null
+        }
+        Relationships: []
+      }
+      students: {
+        Row: {
+          class_id: string | null
+          created_at: string
+          created_by: string | null
+          first_installment: number
+          full_name: string
+          grade_id: string | null
+          guardian_name: string | null
+          id: string
+          national_id: string | null
+          notes: string | null
+          other_fees: number
+          payment_status: Database["public"]["Enums"]["payment_status"]
+          phone: string | null
+          previous_installments: number
+          remaining_balance: number | null
+          second_installment: number
+          student_code: string | null
+          total_due: number | null
+          total_paid: number
+          updated_at: string
+        }
+        Insert: {
+          class_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          first_installment?: number
+          full_name: string
+          grade_id?: string | null
+          guardian_name?: string | null
+          id?: string
+          national_id?: string | null
+          notes?: string | null
+          other_fees?: number
+          payment_status?: Database["public"]["Enums"]["payment_status"]
+          phone?: string | null
+          previous_installments?: number
+          remaining_balance?: number | null
+          second_installment?: number
+          student_code?: string | null
+          total_due?: number | null
+          total_paid?: number
+          updated_at?: string
+        }
+        Update: {
+          class_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          first_installment?: number
+          full_name?: string
+          grade_id?: string | null
+          guardian_name?: string | null
+          id?: string
+          national_id?: string | null
+          notes?: string | null
+          other_fees?: number
+          payment_status?: Database["public"]["Enums"]["payment_status"]
+          phone?: string | null
+          previous_installments?: number
+          remaining_balance?: number | null
+          second_installment?: number
+          student_code?: string | null
+          total_due?: number | null
+          total_paid?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "students_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "students_grade_id_fkey"
+            columns: ["grade_id"]
+            isOneToOne: false
+            referencedRelation: "grades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      is_approved: { Args: { _user_id: string }; Returns: boolean }
+      recompute_student_totals: {
+        Args: { _student_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
-      [_ in never]: never
+      account_status: "pending" | "approved" | "rejected"
+      app_role: "admin" | "student_affairs" | "finance"
+      payment_status: "paid" | "partial" | "unpaid"
+      receipt_status: "pending" | "approved" | "rejected"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +607,11 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      account_status: ["pending", "approved", "rejected"],
+      app_role: ["admin", "student_affairs", "finance"],
+      payment_status: ["paid", "partial", "unpaid"],
+      receipt_status: ["pending", "approved", "rejected"],
+    },
   },
 } as const
