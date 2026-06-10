@@ -44,7 +44,7 @@ function AuthPage() {
 
   async function handleSignUp(e: React.FormEvent) {
     e.preventDefault();
-    if (password.length < 6) return toast.error("كلمة المرور 6 أحرف على الأقل");
+    if (!password) return toast.error("أدخل كلمة المرور");
     setLoading(true);
     const { error } = await supabase.auth.signUp({
       email: usernameToEmail(username),
