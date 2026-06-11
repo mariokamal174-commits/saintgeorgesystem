@@ -65,7 +65,7 @@ function NewReceipt() {
     if (computedAmount <= 0) return toast.error("المبلغ يجب أن يكون أكبر من صفر");
 
     setLoading(true);
-    const payload = isFirst
+    const payload: Record<string, unknown> = isFirst
       ? {
           student_id: form.student_id,
           receipt_number: form.receipt_number.trim(),
@@ -74,7 +74,7 @@ function NewReceipt() {
           education_fees: Number(form.education_fees) || 0,
           amount: computedAmount,
           payer_name: form.payer_name || null,
-          status: "pending" as const,
+          status: "pending",
         }
       : {
           student_id: form.student_id,
@@ -82,14 +82,14 @@ function NewReceipt() {
           receipt_date: form.receipt_date || null,
           amount: Number(form.amount) || 0,
           payer_name: form.payer_name || null,
-          status: "pending" as const,
+          status: "pending",
         };
 
-    const { data, error } = await supabase.from("receipts").insert(payload).select("id").maybeSingle();
+    const { data, error } = await supabase.from("receipts").insert(payload as never).select("id").maybeSingle();
     setLoading(false);
     if (error) return toast.error(error.message);
     const { logActivity } = await import("@/lib/audit");
-    await logActivity("create", "receipt", data?.id, { amount: payload.amount, first: isFirst });
+    await logActivity("create", "receipt", data?.id, { amount: computedAmount, first: isFirst });
     toast.success("تم إنشاء الإيصال — بانتظار الاعتماد");
     navigate({ to: "/receipts" });
   }
