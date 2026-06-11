@@ -66,6 +66,46 @@ function NewReceipt() {
     return <div className="text-center text-muted-foreground py-12">إضافة إيصالات متاحة للشؤون المالية فقط</div>;
   }
 
+  async function handleImageChange(f: File | null) {
+    setImageFile(f);
+    if (!f) { setImagePreview(null); return; }
+    const reader = new FileReader();
+    reader.onload = () => setImagePreview(reader.result as string);
+    reader.readAsDataURL(f);
+  }
+
+  async function runExtraction() {
+    if (!imageFile) return toast.error("ارفع صورة الإيصال أولاً");
+    if (receiptCount === null) return toast.error("اختر الطالب أولاً");
+    setExtracting(true);
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => {
+          const s = r.result as string;
+          resolve(s.split(",")[1] ?? "");
+        };
+        r.onerror = reject;
+        r.readAsDataURL(imageFile);
+      });
+      const result = await extractFn({ data: { imageBase64: base64, mimeType: imageFile.type || "image/jpeg", isFirst } });
+      const r = result as Record<string, string | number | null>;
+      setForm((prev) => ({
+        ...prev,
+        receipt_number: r.receipt_number != null ? String(r.receipt_number) : prev.receipt_number,
+        receipt_date: r.receipt_date ? String(r.receipt_date) : prev.receipt_date,
+        amount: r.amount != null ? String(r.amount) : prev.amount,
+        activity_fees: r.activity_fees != null ? String(r.activity_fees) : prev.activity_fees,
+        education_fees: r.education_fees != null ? String(r.education_fees) : prev.education_fees,
+      }));
+      toast.success("تم استخراج البيانات من الصورة");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "فشل استخراج البيانات");
+    } finally {
+      setExtracting(false);
+    }
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.student_id) return toast.error("اختر الطالب");
@@ -73,6 +113,15 @@ function NewReceipt() {
     if (computedAmount <= 0) return toast.error("المبلغ يجب أن يكون أكبر من صفر");
 
     setLoading(true);
+    let image_url: string | null = null;
+    if (imageFile) {
+      const ext = imageFile.name.split(".").pop() || "jpg";
+      const path = `${form.student_id}/${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage.from("receipt-images").upload(path, imageFile, { contentType: imageFile.type });
+      if (upErr) { setLoading(false); return toast.error("فشل رفع الصورة: " + upErr.message); }
+      image_url = path;
+    }
+
     const payload: Record<string, unknown> = isFirst
       ? {
           student_id: form.student_id,
@@ -83,6 +132,7 @@ function NewReceipt() {
           amount: computedAmount,
           payer_name: form.payer_name || null,
           status: "pending",
+          image_url,
         }
       : {
           student_id: form.student_id,
@@ -91,6 +141,7 @@ function NewReceipt() {
           amount: Number(form.amount) || 0,
           payer_name: form.payer_name || null,
           status: "pending",
+          image_url,
         };
 
     const { data, error } = await supabase.from("receipts").insert(payload as never).select("id").maybeSingle();
