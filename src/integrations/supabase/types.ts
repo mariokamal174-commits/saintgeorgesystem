@@ -247,9 +247,11 @@ export type Database = {
       }
       receipts: {
         Row: {
+          activity_fees: number
           amount: number
           approved_by: string | null
           created_at: string
+          education_fees: number
           file_url: string | null
           id: string
           installment_id: string | null
@@ -264,9 +266,11 @@ export type Database = {
           uploaded_by: string | null
         }
         Insert: {
+          activity_fees?: number
           amount?: number
           approved_by?: string | null
           created_at?: string
+          education_fees?: number
           file_url?: string | null
           id?: string
           installment_id?: string | null
@@ -281,9 +285,11 @@ export type Database = {
           uploaded_by?: string | null
         }
         Update: {
+          activity_fees?: number
           amount?: number
           approved_by?: string | null
           created_at?: string
+          education_fees?: number
           file_url?: string | null
           id?: string
           installment_id?: string | null
