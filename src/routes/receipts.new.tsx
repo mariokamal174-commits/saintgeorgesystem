@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { AppShell } from "@/components/app-shell";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
+import { useServerFn } from "@tanstack/react-start";
+import { extractReceiptData } from "@/lib/ai-receipt.functions";
+import { Loader2, Sparkles, Upload as UploadIcon } from "lucide-react";
 
 interface Search { studentId?: string }
 
@@ -23,9 +26,14 @@ function NewReceipt() {
   const { studentId } = Route.useSearch();
   const navigate = useNavigate();
   const { isFinance, isAdmin } = useAuth();
+  const extractFn = useServerFn(extractReceiptData);
+  const fileRef = useRef<HTMLInputElement>(null);
   const [students, setStudents] = useState<{ id: string; full_name: string; student_code: string | null }[]>([]);
   const [receiptCount, setReceiptCount] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
+  const [extracting, setExtracting] = useState(false);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [form, setForm] = useState({
     student_id: studentId ?? "",
     receipt_number: "",
