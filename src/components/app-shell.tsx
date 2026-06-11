@@ -11,7 +11,7 @@ import type { ReactNode } from "react";
 interface NavItem { to: string; label: string; icon: typeof Users; show: boolean }
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const { user, profile, loading, isAdmin, isApproved, signOut } = useAuth();
+  const { user, profile, loading, isAdmin, isApproved, isFinance, isStudentAffairs, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -40,9 +40,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   const items: NavItem[] = [
     { to: "/", label: "لوحة التحكم", icon: LayoutDashboard, show: true },
     { to: "/students", label: "الطلاب", icon: Users, show: true },
-    { to: "/receipts", label: "الإيصالات", icon: Receipt, show: true },
-    { to: "/imports", label: "استيراد ملفات", icon: Upload, show: true },
-    { to: "/activity", label: "سجل النشاط", icon: Activity, show: true },
+    { to: "/receipts", label: "الإيصالات", icon: Receipt, show: isFinance || isAdmin },
+    { to: "/imports", label: "استيراد ملفات", icon: Upload, show: isStudentAffairs || isAdmin },
+    { to: "/activity", label: "سجل النشاط", icon: Activity, show: isAdmin },
     { to: "/admin", label: "إدارة المستخدمين", icon: ShieldCheck, show: isAdmin },
   ];
 

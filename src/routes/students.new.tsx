@@ -26,8 +26,11 @@ const schema = z.object({
   other_fees: z.coerce.number().min(0),
 });
 
+import { useAuth } from "@/hooks/use-auth";
 function NewStudent() {
+  const { isStudentAffairs, isAdmin } = useAuth();
   const navigate = useNavigate();
+  if (!(isStudentAffairs || isAdmin)) return <div className="text-center text-muted-foreground py-12">إضافة طلاب متاحة لشؤون الطلاب فقط</div>;
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
     full_name: "", student_code: "", national_id: "", guardian_name: "", phone: "",
