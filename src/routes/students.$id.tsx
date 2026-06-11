@@ -56,9 +56,11 @@ function StudentDetail() {
             <p className="text-sm text-muted-foreground">{s.student_code ?? "بدون كود"} · {s.national_id ?? "بدون رقم قومي"}</p>
           </div>
         </div>
-        <Link to="/receipts/new" search={{ studentId: id }}>
-          <Button><Receipt className="ml-2 h-4 w-4" />إضافة إيصال</Button>
-        </Link>
+        {(isFinance || isAdmin) && (
+          <Link to="/receipts/new" search={{ studentId: id }}>
+            <Button><Receipt className="ml-2 h-4 w-4" />إضافة إيصال</Button>
+          </Link>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
