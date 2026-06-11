@@ -181,6 +181,32 @@ function NewReceipt() {
               </Select>
             </div>
 
+            <div className="space-y-2 border rounded-lg p-3 bg-muted/30">
+              <Label>صورة الإيصال (اختياري)</Label>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => handleImageChange(e.target.files?.[0] ?? null)}
+              />
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={() => fileRef.current?.click()}>
+                  <UploadIcon className="ml-2 h-4 w-4" />اختر صورة
+                </Button>
+                <Button type="button" size="sm" disabled={!imageFile || extracting || receiptCount === null} onClick={runExtraction}>
+                  {extracting ? <Loader2 className="ml-2 h-4 w-4 animate-spin" /> : <Sparkles className="ml-2 h-4 w-4" />}
+                  استخراج البيانات بالذكاء الاصطناعي
+                </Button>
+                {imageFile && <span className="text-xs text-muted-foreground self-center">{imageFile.name}</span>}
+              </div>
+              {imagePreview && (
+                <img src={imagePreview} alt="معاينة الإيصال" className="mt-2 max-h-48 rounded border" />
+              )}
+            </div>
+
+
+
             {isFirst ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2"><Label>رقم الإيصال *</Label><Input value={form.receipt_number} onChange={(e) => setForm({ ...form, receipt_number: e.target.value })} required /></div>
