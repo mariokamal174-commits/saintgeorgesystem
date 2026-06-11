@@ -59,9 +59,9 @@ export const extractReceiptData = createServerFn({ method: "POST" })
     const json = await res.json();
     const content = json?.choices?.[0]?.message?.content ?? "{}";
     try {
-      return JSON.parse(content) as Record<string, unknown>;
+      return JSON.parse(content) as Record<string, string | number | null>;
     } catch {
       const m = content.match(/\{[\s\S]*\}/);
-      return m ? (JSON.parse(m[0]) as Record<string, unknown>) : {};
+      return (m ? JSON.parse(m[0]) : {}) as Record<string, string | number | null>;
     }
   });
