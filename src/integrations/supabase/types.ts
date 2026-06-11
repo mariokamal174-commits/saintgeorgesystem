@@ -254,6 +254,7 @@ export type Database = {
           education_fees: number
           file_url: string | null
           id: string
+          image_url: string | null
           installment_id: string | null
           ocr_confidence: number | null
           ocr_raw: Json | null
@@ -273,6 +274,7 @@ export type Database = {
           education_fees?: number
           file_url?: string | null
           id?: string
+          image_url?: string | null
           installment_id?: string | null
           ocr_confidence?: number | null
           ocr_raw?: Json | null
@@ -292,6 +294,7 @@ export type Database = {
           education_fees?: number
           file_url?: string | null
           id?: string
+          image_url?: string | null
           installment_id?: string | null
           ocr_confidence?: number | null
           ocr_raw?: Json | null

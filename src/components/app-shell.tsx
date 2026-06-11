@@ -42,7 +42,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     { to: "/students", label: "الطلاب", icon: Users, show: true },
     { to: "/receipts", label: "الإيصالات", icon: Receipt, show: isFinance || isAdmin },
     { to: "/imports", label: "استيراد ملفات", icon: Upload, show: isStudentAffairs || isAdmin },
-    { to: "/activity", label: "سجل النشاط", icon: Activity, show: isAdmin },
+    { to: "/activity", label: "سجل النشاط", icon: Activity, show: true },
     { to: "/admin", label: "إدارة المستخدمين", icon: ShieldCheck, show: isAdmin },
   ];
 

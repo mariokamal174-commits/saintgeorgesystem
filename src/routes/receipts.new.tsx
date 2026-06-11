@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { AppShell } from "@/components/app-shell";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
+import { useServerFn } from "@tanstack/react-start";
+import { extractReceiptData } from "@/lib/ai-receipt.functions";
+import { Loader2, Sparkles, Upload as UploadIcon } from "lucide-react";
 
 interface Search { studentId?: string }
 
@@ -23,9 +26,14 @@ function NewReceipt() {
   const { studentId } = Route.useSearch();
   const navigate = useNavigate();
   const { isFinance, isAdmin } = useAuth();
+  const extractFn = useServerFn(extractReceiptData);
+  const fileRef = useRef<HTMLInputElement>(null);
   const [students, setStudents] = useState<{ id: string; full_name: string; student_code: string | null }[]>([]);
   const [receiptCount, setReceiptCount] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
+  const [extracting, setExtracting] = useState(false);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [form, setForm] = useState({
     student_id: studentId ?? "",
     receipt_number: "",
@@ -58,6 +66,46 @@ function NewReceipt() {
     return <div className="text-center text-muted-foreground py-12">إضافة إيصالات متاحة للشؤون المالية فقط</div>;
   }
 
+  async function handleImageChange(f: File | null) {
+    setImageFile(f);
+    if (!f) { setImagePreview(null); return; }
+    const reader = new FileReader();
+    reader.onload = () => setImagePreview(reader.result as string);
+    reader.readAsDataURL(f);
+  }
+
+  async function runExtraction() {
+    if (!imageFile) return toast.error("ارفع صورة الإيصال أولاً");
+    if (receiptCount === null) return toast.error("اختر الطالب أولاً");
+    setExtracting(true);
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => {
+          const s = r.result as string;
+          resolve(s.split(",")[1] ?? "");
+        };
+        r.onerror = reject;
+        r.readAsDataURL(imageFile);
+      });
+      const result = await extractFn({ data: { imageBase64: base64, mimeType: imageFile.type || "image/jpeg", isFirst } });
+      const r = result as Record<string, string | number | null>;
+      setForm((prev) => ({
+        ...prev,
+        receipt_number: r.receipt_number != null ? String(r.receipt_number) : prev.receipt_number,
+        receipt_date: r.receipt_date ? String(r.receipt_date) : prev.receipt_date,
+        amount: r.amount != null ? String(r.amount) : prev.amount,
+        activity_fees: r.activity_fees != null ? String(r.activity_fees) : prev.activity_fees,
+        education_fees: r.education_fees != null ? String(r.education_fees) : prev.education_fees,
+      }));
+      toast.success("تم استخراج البيانات من الصورة");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "فشل استخراج البيانات");
+    } finally {
+      setExtracting(false);
+    }
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.student_id) return toast.error("اختر الطالب");
@@ -65,6 +113,15 @@ function NewReceipt() {
     if (computedAmount <= 0) return toast.error("المبلغ يجب أن يكون أكبر من صفر");
 
     setLoading(true);
+    let image_url: string | null = null;
+    if (imageFile) {
+      const ext = imageFile.name.split(".").pop() || "jpg";
+      const path = `${form.student_id}/${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage.from("receipt-images").upload(path, imageFile, { contentType: imageFile.type });
+      if (upErr) { setLoading(false); return toast.error("فشل رفع الصورة: " + upErr.message); }
+      image_url = path;
+    }
+
     const payload: Record<string, unknown> = isFirst
       ? {
           student_id: form.student_id,
@@ -75,6 +132,7 @@ function NewReceipt() {
           amount: computedAmount,
           payer_name: form.payer_name || null,
           status: "pending",
+          image_url,
         }
       : {
           student_id: form.student_id,
@@ -83,6 +141,7 @@ function NewReceipt() {
           amount: Number(form.amount) || 0,
           payer_name: form.payer_name || null,
           status: "pending",
+          image_url,
         };
 
     const { data, error } = await supabase.from("receipts").insert(payload as never).select("id").maybeSingle();
@@ -121,6 +180,32 @@ function NewReceipt() {
                 </SelectContent>
               </Select>
             </div>
+
+            <div className="space-y-2 border rounded-lg p-3 bg-muted/30">
+              <Label>صورة الإيصال (اختياري)</Label>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => handleImageChange(e.target.files?.[0] ?? null)}
+              />
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={() => fileRef.current?.click()}>
+                  <UploadIcon className="ml-2 h-4 w-4" />اختر صورة
+                </Button>
+                <Button type="button" size="sm" disabled={!imageFile || extracting || receiptCount === null} onClick={runExtraction}>
+                  {extracting ? <Loader2 className="ml-2 h-4 w-4 animate-spin" /> : <Sparkles className="ml-2 h-4 w-4" />}
+                  استخراج البيانات بالذكاء الاصطناعي
+                </Button>
+                {imageFile && <span className="text-xs text-muted-foreground self-center">{imageFile.name}</span>}
+              </div>
+              {imagePreview && (
+                <img src={imagePreview} alt="معاينة الإيصال" className="mt-2 max-h-48 rounded border" />
+              )}
+            </div>
+
+
 
             {isFirst ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
