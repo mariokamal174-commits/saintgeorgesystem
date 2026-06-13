@@ -7,7 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowRight, Receipt } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { ArrowRight, Receipt, FileCheck2 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
 import { logActivity } from "@/lib/audit";
@@ -19,17 +20,19 @@ export const Route = createFileRoute("/students/$id")({
 
 function StudentDetail() {
   const { id } = Route.useParams();
-  const { isFinance, isAdmin } = useAuth();
+  const { isFinance, isAdmin, isStudentAffairs } = useAuth();
   const canEditInstallments = isFinance || isAdmin;
+  const canEditDelivery = isStudentAffairs || isAdmin;
   const { data, refetch } = useQuery({
     queryKey: ["student", id],
     queryFn: async () => {
-      const [s, inst, rec] = await Promise.all([
+      const [s, inst, rec, del] = await Promise.all([
         supabase.from("students").select("*").eq("id", id).maybeSingle(),
         supabase.from("installments").select("*").eq("student_id", id).order("due_date"),
         supabase.from("receipts").select("*").eq("student_id", id).order("created_at", { ascending: false }),
+        supabase.from("delivery_tracking").select("*").eq("student_id", id).eq("item", "ملف الطالب").maybeSingle(),
       ]);
-      return { student: s.data, installments: inst.data ?? [], receipts: rec.data ?? [] };
+      return { student: s.data, installments: inst.data ?? [], receipts: rec.data ?? [], delivery: del.data };
     },
   });
 
@@ -38,6 +41,7 @@ function StudentDetail() {
       .on("postgres_changes", { event: "*", schema: "public", table: "students", filter: `id=eq.${id}` }, () => refetch())
       .on("postgres_changes", { event: "*", schema: "public", table: "receipts", filter: `student_id=eq.${id}` }, () => refetch())
       .on("postgres_changes", { event: "*", schema: "public", table: "installments", filter: `student_id=eq.${id}` }, () => refetch())
+      .on("postgres_changes", { event: "*", schema: "public", table: "delivery_tracking", filter: `student_id=eq.${id}` }, () => refetch())
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [id, refetch]);
