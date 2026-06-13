@@ -139,6 +139,14 @@ function StudentsList() {
                   <td className="px-4 py-3">{fmt(Number(s.previous_installments))}</td>
                   <td className="px-4 py-3 font-medium">{fmt(Number(s.remaining_balance))}</td>
                   <td className="px-4 py-3">
+                    {(() => {
+                      const d = (s.delivery_tracking ?? []).find((x: any) => x.item === "ملف الطالب");
+                      return d?.delivered
+                        ? <Badge className="bg-success text-success-foreground">تم التسليم</Badge>
+                        : <Badge variant="outline" className="text-destructive border-destructive/40">لم يُسلَّم</Badge>;
+                    })()}
+                  </td>
+                  <td className="px-4 py-3">
                     {s.payment_status === "paid" && <Badge className="bg-success text-success-foreground">مسدد بالكامل</Badge>}
                     {s.payment_status === "partial" && <Badge className="bg-warning text-warning-foreground">دفعة جزئية</Badge>}
                     {s.payment_status === "unpaid" && <Badge variant="destructive">غير مسدد</Badge>}
