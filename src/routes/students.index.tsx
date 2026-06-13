@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, Plus } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -26,10 +26,24 @@ function StudentsList() {
   const { data: grades } = useQuery({
     queryKey: ["grades-all"],
     queryFn: async () => {
-      const { data } = await supabase.from("grades").select("id, name").order("name");
+      const { data } = await supabase.from("grades").select("id, name, level").order("level");
       return data ?? [];
     },
   });
+
+  const gradeGroups = useMemo(() => {
+    const groups: Record<string, { id: string; name: string }[]> = {
+      "رياض الأطفال": [], "المرحلة الابتدائية": [], "المرحلة الإعدادية": [], "المرحلة الثانوية": [],
+    };
+    (grades ?? []).forEach((g) => {
+      const lvl = g.level ?? 0;
+      if (lvl <= 2) groups["رياض الأطفال"].push(g);
+      else if (lvl <= 8) groups["المرحلة الابتدائية"].push(g);
+      else if (lvl <= 11) groups["المرحلة الإعدادية"].push(g);
+      else groups["المرحلة الثانوية"].push(g);
+    });
+    return groups;
+  }, [grades]);
 
   const { data, refetch, isLoading } = useQuery({
     queryKey: ["students", q, page, gradeId],
@@ -81,7 +95,14 @@ function StudentsList() {
             <SelectTrigger className="md:w-64"><SelectValue placeholder="كل الصفوف" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">كل الصفوف</SelectItem>
-              {grades?.map(g => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}
+              {Object.entries(gradeGroups).map(([groupName, items]) => (
+                items.length > 0 && (
+                  <SelectGroup key={groupName}>
+                    <SelectLabel>{groupName}</SelectLabel>
+                    {items.map(g => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}
+                  </SelectGroup>
+                )
+              ))}
             </SelectContent>
           </Select>
         </div>
