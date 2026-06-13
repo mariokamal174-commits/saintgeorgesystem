@@ -152,7 +152,9 @@ function StudentDetail() {
                               if (error) toast.error(error.message);
                               else {
                                 toast.success("تم تحديث حالة القسط");
-                                logActivity("update", "installment", i.id, { status: v });
+                                logActivity("update", "installment", i.id, {
+                                  student_name: s.full_name, item: i.label, status: v, amount: Number(i.amount),
+                                });
                                 refetch();
                               }
                             }}
@@ -180,7 +182,67 @@ function StudentDetail() {
           )}
         </CardContent>
       </Card>
+
+      <DeliveryCard
+        studentId={id}
+        studentName={s.full_name}
+        delivery={data.delivery as { id: string; delivered: boolean; delivered_at: string | null } | null}
+        canEdit={canEditDelivery}
+        onChange={refetch}
+      />
     </div>
+  );
+}
+
+function DeliveryCard({ studentId, studentName, delivery, canEdit, onChange }: {
+  studentId: string; studentName: string; delivery: { id: string; delivered: boolean; delivered_at: string | null } | null;
+  canEdit: boolean; onChange: () => void;
+}) {
+  const delivered = !!delivery?.delivered;
+  async function toggle(next: boolean) {
+    let error;
+    if (delivery?.id) {
+      ({ error } = await supabase.from("delivery_tracking")
+        .update({ delivered: next, delivered_at: next ? new Date().toISOString() : null })
+        .eq("id", delivery.id));
+    } else {
+      ({ error } = await supabase.from("delivery_tracking").insert({
+        student_id: studentId, item: "ملف الطالب", delivered: next,
+        delivered_at: next ? new Date().toISOString() : null,
+      } as never));
+    }
+    if (error) return toast.error(error.message);
+    toast.success(next ? "تم تسجيل تسليم الملف" : "تم إلغاء تسليم الملف");
+    logActivity("update", "delivery", delivery?.id ?? null, {
+      student_name: studentName, item: "ملف الطالب", delivered: next,
+    });
+    onChange();
+  }
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2"><FileCheck2 className="h-5 w-5" />تسليم الملف</CardTitle>
+      </CardHeader>
+      <CardContent className="flex items-center justify-between flex-wrap gap-3">
+        <div className="space-y-1">
+          {delivered ? (
+            <Badge className="bg-success text-success-foreground text-base">تم تسليم الملف</Badge>
+          ) : (
+            <Badge variant="destructive" className="text-base">الملف لم يُسلَّم</Badge>
+          )}
+          {delivery?.delivered_at && delivered && (
+            <p className="text-xs text-muted-foreground">بتاريخ {new Intl.DateTimeFormat("ar-EG", { dateStyle: "medium" }).format(new Date(delivery.delivered_at))}</p>
+          )}
+          {!canEdit && <p className="text-xs text-muted-foreground">شؤون الطلاب هي المسؤولة عن تحديث هذه الحالة</p>}
+        </div>
+        {canEdit && (
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">تم التسليم</span>
+            <Switch checked={delivered} onCheckedChange={toggle} />
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
