@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, Plus } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -26,15 +26,29 @@ function StudentsList() {
   const { data: grades } = useQuery({
     queryKey: ["grades-all"],
     queryFn: async () => {
-      const { data } = await supabase.from("grades").select("id, name").order("name");
+      const { data } = await supabase.from("grades").select("id, name, level").order("level");
       return data ?? [];
     },
   });
 
+  const gradeGroups = useMemo(() => {
+    const groups: Record<string, { id: string; name: string }[]> = {
+      "رياض الأطفال": [], "المرحلة الابتدائية": [], "المرحلة الإعدادية": [], "المرحلة الثانوية": [],
+    };
+    (grades ?? []).forEach((g) => {
+      const lvl = g.level ?? 0;
+      if (lvl <= 2) groups["رياض الأطفال"].push(g);
+      else if (lvl <= 8) groups["المرحلة الابتدائية"].push(g);
+      else if (lvl <= 11) groups["المرحلة الإعدادية"].push(g);
+      else groups["المرحلة الثانوية"].push(g);
+    });
+    return groups;
+  }, [grades]);
+
   const { data, refetch, isLoading } = useQuery({
     queryKey: ["students", q, page, gradeId],
     queryFn: async () => {
-      let qb = supabase.from("students").select("*, classes(name), grades(name)", { count: "exact" })
+      let qb = supabase.from("students").select("*, classes(name), grades(name), delivery_tracking(item, delivered)", { count: "exact" })
         .order("created_at", { ascending: false })
         .range(page * PAGE, page * PAGE + PAGE - 1);
       if (gradeId !== "all") qb = qb.eq("grade_id", gradeId);
@@ -81,7 +95,14 @@ function StudentsList() {
             <SelectTrigger className="md:w-64"><SelectValue placeholder="كل الصفوف" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">كل الصفوف</SelectItem>
-              {grades?.map(g => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}
+              {Object.entries(gradeGroups).map(([groupName, items]) => (
+                items.length > 0 && (
+                  <SelectGroup key={groupName}>
+                    <SelectLabel>{groupName}</SelectLabel>
+                    {items.map(g => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}
+                  </SelectGroup>
+                )
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -99,12 +120,13 @@ function StudentsList() {
                 <th className="px-4 py-3 text-right">القسط الثاني</th>
                 <th className="px-4 py-3 text-right">أقساط سابقة</th>
                 <th className="px-4 py-3 text-right">المتبقي</th>
+                <th className="px-4 py-3 text-right">الملف</th>
                 <th className="px-4 py-3 text-right">الحالة</th>
               </tr>
             </thead>
             <tbody>
-              {isLoading && <tr><td colSpan={8} className="text-center py-8 text-muted-foreground">جاري التحميل...</td></tr>}
-              {!isLoading && data?.rows.length === 0 && <tr><td colSpan={8} className="text-center py-8 text-muted-foreground">لا يوجد طلاب</td></tr>}
+              {isLoading && <tr><td colSpan={9} className="text-center py-8 text-muted-foreground">جاري التحميل...</td></tr>}
+              {!isLoading && data?.rows.length === 0 && <tr><td colSpan={9} className="text-center py-8 text-muted-foreground">لا يوجد طلاب</td></tr>}
               {data?.rows.map((s: any) => (
                 <tr key={s.id} className="border-t hover:bg-muted/50 cursor-pointer">
                   <td className="px-4 py-3">
@@ -116,6 +138,14 @@ function StudentsList() {
                   <td className="px-4 py-3">{fmt(Number(s.second_installment))}</td>
                   <td className="px-4 py-3">{fmt(Number(s.previous_installments))}</td>
                   <td className="px-4 py-3 font-medium">{fmt(Number(s.remaining_balance))}</td>
+                  <td className="px-4 py-3">
+                    {(() => {
+                      const d = (s.delivery_tracking ?? []).find((x: any) => x.item === "ملف الطالب");
+                      return d?.delivered
+                        ? <Badge className="bg-success text-success-foreground">تم التسليم</Badge>
+                        : <Badge variant="outline" className="text-destructive border-destructive/40">لم يُسلَّم</Badge>;
+                    })()}
+                  </td>
                   <td className="px-4 py-3">
                     {s.payment_status === "paid" && <Badge className="bg-success text-success-foreground">مسدد بالكامل</Badge>}
                     {s.payment_status === "partial" && <Badge className="bg-warning text-warning-foreground">دفعة جزئية</Badge>}

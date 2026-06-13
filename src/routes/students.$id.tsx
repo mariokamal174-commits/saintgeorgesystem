@@ -7,7 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowRight, Receipt } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { ArrowRight, Receipt, FileCheck2 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
 import { logActivity } from "@/lib/audit";
@@ -19,17 +20,19 @@ export const Route = createFileRoute("/students/$id")({
 
 function StudentDetail() {
   const { id } = Route.useParams();
-  const { isFinance, isAdmin } = useAuth();
+  const { isFinance, isAdmin, isStudentAffairs } = useAuth();
   const canEditInstallments = isFinance || isAdmin;
+  const canEditDelivery = isStudentAffairs || isAdmin;
   const { data, refetch } = useQuery({
     queryKey: ["student", id],
     queryFn: async () => {
-      const [s, inst, rec] = await Promise.all([
+      const [s, inst, rec, del] = await Promise.all([
         supabase.from("students").select("*").eq("id", id).maybeSingle(),
         supabase.from("installments").select("*").eq("student_id", id).order("due_date"),
         supabase.from("receipts").select("*").eq("student_id", id).order("created_at", { ascending: false }),
+        supabase.from("delivery_tracking").select("*").eq("student_id", id).eq("item", "ملف الطالب").maybeSingle(),
       ]);
-      return { student: s.data, installments: inst.data ?? [], receipts: rec.data ?? [] };
+      return { student: s.data, installments: inst.data ?? [], receipts: rec.data ?? [], delivery: del.data };
     },
   });
 
@@ -38,6 +41,7 @@ function StudentDetail() {
       .on("postgres_changes", { event: "*", schema: "public", table: "students", filter: `id=eq.${id}` }, () => refetch())
       .on("postgres_changes", { event: "*", schema: "public", table: "receipts", filter: `student_id=eq.${id}` }, () => refetch())
       .on("postgres_changes", { event: "*", schema: "public", table: "installments", filter: `student_id=eq.${id}` }, () => refetch())
+      .on("postgres_changes", { event: "*", schema: "public", table: "delivery_tracking", filter: `student_id=eq.${id}` }, () => refetch())
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [id, refetch]);
@@ -148,7 +152,9 @@ function StudentDetail() {
                               if (error) toast.error(error.message);
                               else {
                                 toast.success("تم تحديث حالة القسط");
-                                logActivity("update", "installment", i.id, { status: v });
+                                logActivity("update", "installment", i.id, {
+                                  student_name: s.full_name, item: i.label, status: v, amount: Number(i.amount),
+                                });
                                 refetch();
                               }
                             }}
@@ -176,7 +182,67 @@ function StudentDetail() {
           )}
         </CardContent>
       </Card>
+
+      <DeliveryCard
+        studentId={id}
+        studentName={s.full_name}
+        delivery={data.delivery as { id: string; delivered: boolean; delivered_at: string | null } | null}
+        canEdit={canEditDelivery}
+        onChange={refetch}
+      />
     </div>
+  );
+}
+
+function DeliveryCard({ studentId, studentName, delivery, canEdit, onChange }: {
+  studentId: string; studentName: string; delivery: { id: string; delivered: boolean; delivered_at: string | null } | null;
+  canEdit: boolean; onChange: () => void;
+}) {
+  const delivered = !!delivery?.delivered;
+  async function toggle(next: boolean) {
+    let error;
+    if (delivery?.id) {
+      ({ error } = await supabase.from("delivery_tracking")
+        .update({ delivered: next, delivered_at: next ? new Date().toISOString() : null })
+        .eq("id", delivery.id));
+    } else {
+      ({ error } = await supabase.from("delivery_tracking").insert({
+        student_id: studentId, item: "ملف الطالب", delivered: next,
+        delivered_at: next ? new Date().toISOString() : null,
+      } as never));
+    }
+    if (error) return toast.error(error.message);
+    toast.success(next ? "تم تسجيل تسليم الملف" : "تم إلغاء تسليم الملف");
+    logActivity("update", "delivery", delivery?.id ?? null, {
+      student_name: studentName, item: "ملف الطالب", delivered: next,
+    });
+    onChange();
+  }
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2"><FileCheck2 className="h-5 w-5" />تسليم الملف</CardTitle>
+      </CardHeader>
+      <CardContent className="flex items-center justify-between flex-wrap gap-3">
+        <div className="space-y-1">
+          {delivered ? (
+            <Badge className="bg-success text-success-foreground text-base">تم تسليم الملف</Badge>
+          ) : (
+            <Badge variant="destructive" className="text-base">الملف لم يُسلَّم</Badge>
+          )}
+          {delivery?.delivered_at && delivered && (
+            <p className="text-xs text-muted-foreground">بتاريخ {new Intl.DateTimeFormat("ar-EG", { dateStyle: "medium" }).format(new Date(delivery.delivered_at))}</p>
+          )}
+          {!canEdit && <p className="text-xs text-muted-foreground">شؤون الطلاب هي المسؤولة عن تحديث هذه الحالة</p>}
+        </div>
+        {canEdit && (
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">تم التسليم</span>
+            <Switch checked={delivered} onCheckedChange={toggle} />
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

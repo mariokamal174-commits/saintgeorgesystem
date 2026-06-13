@@ -1,20 +1,27 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { AppShell } from "@/components/app-shell";
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
 import { useServerFn } from "@tanstack/react-start";
 import { extractReceiptData } from "@/lib/ai-receipt.functions";
 import { Loader2, Sparkles, Upload as UploadIcon } from "lucide-react";
+import { logActivity } from "@/lib/audit";
 
 interface Search { studentId?: string }
+
+const KIND_LABELS: Record<string, string> = {
+  first: "القسط الأول",
+  second: "القسط الثاني",
+  previous: "أقساط سنوات سابقة",
+  other: "رسوم أخرى",
+};
 
 export const Route = createFileRoute("/receipts/new")({
   head: () => ({ meta: [{ title: "إضافة إيصال" }] }),
@@ -29,13 +36,13 @@ function NewReceipt() {
   const extractFn = useServerFn(extractReceiptData);
   const fileRef = useRef<HTMLInputElement>(null);
   const [students, setStudents] = useState<{ id: string; full_name: string; student_code: string | null }[]>([]);
-  const [receiptCount, setReceiptCount] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [extracting, setExtracting] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [form, setForm] = useState({
     student_id: studentId ?? "",
+    kind: "first" as "first" | "second" | "previous" | "other",
     receipt_number: "",
     receipt_date: new Date().toISOString().slice(0, 10),
     amount: "",
@@ -49,22 +56,11 @@ function NewReceipt() {
       .then(({ data }) => setStudents(data ?? []));
   }, []);
 
-  useEffect(() => {
-    if (!form.student_id) { setReceiptCount(null); return; }
-    supabase.from("receipts").select("id", { count: "exact", head: true }).eq("student_id", form.student_id)
-      .then(({ count }) => setReceiptCount(count ?? 0));
-  }, [form.student_id]);
-
-  const isFirst = receiptCount === 0;
-
-  const computedAmount = useMemo(() => {
-    if (!isFirst) return Number(form.amount) || 0;
-    return (Number(form.activity_fees) || 0) + (Number(form.education_fees) || 0);
-  }, [isFirst, form.amount, form.activity_fees, form.education_fees]);
-
   if (!(isFinance || isAdmin)) {
     return <div className="text-center text-muted-foreground py-12">إضافة إيصالات متاحة للشؤون المالية فقط</div>;
   }
+
+  const isFirst = form.kind === "first";
 
   async function handleImageChange(f: File | null) {
     setImageFile(f);
@@ -76,28 +72,31 @@ function NewReceipt() {
 
   async function runExtraction() {
     if (!imageFile) return toast.error("ارفع صورة الإيصال أولاً");
-    if (receiptCount === null) return toast.error("اختر الطالب أولاً");
     setExtracting(true);
     try {
       const base64 = await new Promise<string>((resolve, reject) => {
         const r = new FileReader();
-        r.onload = () => {
-          const s = r.result as string;
-          resolve(s.split(",")[1] ?? "");
-        };
+        r.onload = () => resolve(((r.result as string).split(",")[1]) ?? "");
         r.onerror = reject;
         r.readAsDataURL(imageFile);
       });
       const result = await extractFn({ data: { imageBase64: base64, mimeType: imageFile.type || "image/jpeg", isFirst } });
       const r = result as Record<string, string | number | null>;
-      setForm((prev) => ({
-        ...prev,
-        receipt_number: r.receipt_number != null ? String(r.receipt_number) : prev.receipt_number,
-        receipt_date: r.receipt_date ? String(r.receipt_date) : prev.receipt_date,
-        amount: r.amount != null ? String(r.amount) : prev.amount,
-        activity_fees: r.activity_fees != null ? String(r.activity_fees) : prev.activity_fees,
-        education_fees: r.education_fees != null ? String(r.education_fees) : prev.education_fees,
-      }));
+      setForm((prev) => {
+        const next = {
+          ...prev,
+          receipt_number: r.receipt_number != null ? String(r.receipt_number) : prev.receipt_number,
+          receipt_date: r.receipt_date ? String(r.receipt_date) : prev.receipt_date,
+          amount: r.amount != null ? String(r.amount) : prev.amount,
+          activity_fees: r.activity_fees != null ? String(r.activity_fees) : prev.activity_fees,
+          education_fees: r.education_fees != null ? String(r.education_fees) : prev.education_fees,
+        };
+        if (isFirst && !next.amount) {
+          const sum = (Number(next.activity_fees) || 0) + (Number(next.education_fees) || 0);
+          if (sum > 0) next.amount = String(sum);
+        }
+        return next;
+      });
       toast.success("تم استخراج البيانات من الصورة");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "فشل استخراج البيانات");
@@ -110,7 +109,8 @@ function NewReceipt() {
     e.preventDefault();
     if (!form.student_id) return toast.error("اختر الطالب");
     if (!form.receipt_number.trim()) return toast.error("أدخل رقم الإيصال");
-    if (computedAmount <= 0) return toast.error("المبلغ يجب أن يكون أكبر من صفر");
+    const amt = Number(form.amount) || 0;
+    if (amt <= 0) return toast.error("أدخل المبلغ");
 
     setLoading(true);
     let image_url: string | null = null;
@@ -122,33 +122,28 @@ function NewReceipt() {
       image_url = path;
     }
 
-    const payload: Record<string, unknown> = isFirst
-      ? {
-          student_id: form.student_id,
-          receipt_number: form.receipt_number.trim(),
-          receipt_date: new Date().toISOString().slice(0, 10),
-          activity_fees: Number(form.activity_fees) || 0,
-          education_fees: Number(form.education_fees) || 0,
-          amount: computedAmount,
-          payer_name: form.payer_name || null,
-          status: "pending",
-          image_url,
-        }
-      : {
-          student_id: form.student_id,
-          receipt_number: form.receipt_number.trim(),
-          receipt_date: form.receipt_date || null,
-          amount: Number(form.amount) || 0,
-          payer_name: form.payer_name || null,
-          status: "pending",
-          image_url,
-        };
+    const payload: Record<string, unknown> = {
+      student_id: form.student_id,
+      receipt_number: form.receipt_number.trim(),
+      receipt_date: form.receipt_date || null,
+      amount: amt,
+      activity_fees: isFirst ? (Number(form.activity_fees) || 0) : 0,
+      education_fees: isFirst ? (Number(form.education_fees) || 0) : 0,
+      payer_name: form.payer_name || null,
+      status: "pending",
+      image_url,
+    };
 
     const { data, error } = await supabase.from("receipts").insert(payload as never).select("id").maybeSingle();
     setLoading(false);
     if (error) return toast.error(error.message);
-    const { logActivity } = await import("@/lib/audit");
-    await logActivity("create", "receipt", data?.id, { amount: computedAmount, first: isFirst });
+    const studentName = students.find(s => s.id === form.student_id)?.full_name ?? "—";
+    await logActivity("create", "receipt", data?.id, {
+      amount: amt,
+      kind: KIND_LABELS[form.kind],
+      receipt_number: form.receipt_number.trim(),
+      student_name: studentName,
+    });
     toast.success("تم إنشاء الإيصال — بانتظار الاعتماد");
     navigate({ to: "/receipts" });
   }
@@ -158,16 +153,7 @@ function NewReceipt() {
       <h1 className="text-3xl font-bold">إضافة إيصال جديد</h1>
       <form onSubmit={submit}>
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <span>بيانات الإيصال</span>
-              {receiptCount !== null && (
-                isFirst
-                  ? <Badge className="bg-primary text-primary-foreground">أول إيصال</Badge>
-                  : <Badge variant="outline">قسط رقم {receiptCount + 1}</Badge>
-              )}
-            </CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle>بيانات الإيصال</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label>الطالب *</Label>
@@ -177,6 +163,19 @@ function NewReceipt() {
                   {students.map(s => (
                     <SelectItem key={s.id} value={s.id}>{s.full_name} {s.student_code && `(${s.student_code})`}</SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>نوع القسط *</Label>
+              <Select value={form.kind} onValueChange={(v) => setForm({ ...form, kind: v as typeof form.kind })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="first">القسط الأول</SelectItem>
+                  <SelectItem value="second">القسط الثاني</SelectItem>
+                  <SelectItem value="previous">أقساط سنوات سابقة</SelectItem>
+                  <SelectItem value="other">رسوم أخرى</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -194,7 +193,7 @@ function NewReceipt() {
                 <Button type="button" variant="outline" size="sm" onClick={() => fileRef.current?.click()}>
                   <UploadIcon className="ml-2 h-4 w-4" />اختر صورة
                 </Button>
-                <Button type="button" size="sm" disabled={!imageFile || extracting || receiptCount === null} onClick={runExtraction}>
+                <Button type="button" size="sm" disabled={!imageFile || extracting} onClick={runExtraction}>
                   {extracting ? <Loader2 className="ml-2 h-4 w-4 animate-spin" /> : <Sparkles className="ml-2 h-4 w-4" />}
                   استخراج البيانات بالذكاء الاصطناعي
                 </Button>
@@ -205,20 +204,16 @@ function NewReceipt() {
               )}
             </div>
 
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2"><Label>رقم الإيصال *</Label><Input value={form.receipt_number} onChange={(e) => setForm({ ...form, receipt_number: e.target.value })} required /></div>
+              <div className="space-y-2"><Label>تاريخ الإيصال *</Label><Input type="date" value={form.receipt_date} onChange={(e) => setForm({ ...form, receipt_date: e.target.value })} required /></div>
+              <div className="space-y-2 sm:col-span-2"><Label>المبلغ *</Label><Input type="number" step="0.01" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} required /></div>
+            </div>
 
-
-            {isFirst ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2"><Label>رقم الإيصال *</Label><Input value={form.receipt_number} onChange={(e) => setForm({ ...form, receipt_number: e.target.value })} required /></div>
-                <div className="space-y-2"><Label>رسوم التعليم *</Label><Input type="number" step="0.01" value={form.education_fees} onChange={(e) => setForm({ ...form, education_fees: e.target.value })} /></div>
-                <div className="space-y-2"><Label>رسوم النشاط *</Label><Input type="number" step="0.01" value={form.activity_fees} onChange={(e) => setForm({ ...form, activity_fees: e.target.value })} /></div>
-                <div className="space-y-2"><Label>الإجمالي (تلقائي)</Label><Input value={computedAmount} readOnly className="bg-muted font-bold" /></div>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2"><Label>تاريخ الإيصال *</Label><Input type="date" value={form.receipt_date} onChange={(e) => setForm({ ...form, receipt_date: e.target.value })} required /></div>
-                <div className="space-y-2"><Label>رقم الإيصال *</Label><Input value={form.receipt_number} onChange={(e) => setForm({ ...form, receipt_number: e.target.value })} required /></div>
-                <div className="space-y-2 sm:col-span-2"><Label>المبلغ *</Label><Input type="number" step="0.01" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} required /></div>
+            {isFirst && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t pt-4">
+                <div className="space-y-2"><Label>رسوم التعليم</Label><Input type="number" step="0.01" value={form.education_fees} onChange={(e) => setForm({ ...form, education_fees: e.target.value })} /></div>
+                <div className="space-y-2"><Label>رسوم النشاط</Label><Input type="number" step="0.01" value={form.activity_fees} onChange={(e) => setForm({ ...form, activity_fees: e.target.value })} /></div>
               </div>
             )}
 
