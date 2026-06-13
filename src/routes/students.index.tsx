@@ -48,7 +48,7 @@ function StudentsList() {
   const { data, refetch, isLoading } = useQuery({
     queryKey: ["students", q, page, gradeId],
     queryFn: async () => {
-      let qb = supabase.from("students").select("*, classes(name), grades(name)", { count: "exact" })
+      let qb = supabase.from("students").select("*, classes(name), grades(name), delivery_tracking(item, delivered)", { count: "exact" })
         .order("created_at", { ascending: false })
         .range(page * PAGE, page * PAGE + PAGE - 1);
       if (gradeId !== "all") qb = qb.eq("grade_id", gradeId);
@@ -120,12 +120,13 @@ function StudentsList() {
                 <th className="px-4 py-3 text-right">القسط الثاني</th>
                 <th className="px-4 py-3 text-right">أقساط سابقة</th>
                 <th className="px-4 py-3 text-right">المتبقي</th>
+                <th className="px-4 py-3 text-right">الملف</th>
                 <th className="px-4 py-3 text-right">الحالة</th>
               </tr>
             </thead>
             <tbody>
-              {isLoading && <tr><td colSpan={8} className="text-center py-8 text-muted-foreground">جاري التحميل...</td></tr>}
-              {!isLoading && data?.rows.length === 0 && <tr><td colSpan={8} className="text-center py-8 text-muted-foreground">لا يوجد طلاب</td></tr>}
+              {isLoading && <tr><td colSpan={9} className="text-center py-8 text-muted-foreground">جاري التحميل...</td></tr>}
+              {!isLoading && data?.rows.length === 0 && <tr><td colSpan={9} className="text-center py-8 text-muted-foreground">لا يوجد طلاب</td></tr>}
               {data?.rows.map((s: any) => (
                 <tr key={s.id} className="border-t hover:bg-muted/50 cursor-pointer">
                   <td className="px-4 py-3">
