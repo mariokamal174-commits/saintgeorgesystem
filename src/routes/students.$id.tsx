@@ -72,9 +72,9 @@ function StudentDetail() {
         <StatCard label="المتبقي" value={fmt(Number(s.remaining_balance))} tone={Number(s.remaining_balance) > 0 ? "warning" : "success"} />
         <Card><CardContent className="p-4">
           <div className="text-sm text-muted-foreground mb-2">الحالة</div>
-          {s.payment_status === "paid" && <Badge className="bg-success text-success-foreground text-base">مسدد بالكامل</Badge>}
-          {s.payment_status === "partial" && <Badge className="bg-warning text-warning-foreground text-base">دفعة جزئية</Badge>}
-          {s.payment_status === "unpaid" && <Badge variant="destructive" className="text-base">غير مسدد</Badge>}
+          {s.payment_status === "paid"
+            ? <Badge className="bg-success text-success-foreground text-base">مسدد بالكامل</Badge>
+            : <Badge variant="destructive" className="text-base">غير مسدد</Badge>}
         </CardContent></Card>
       </div>
 
