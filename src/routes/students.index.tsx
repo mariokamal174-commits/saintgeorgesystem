@@ -147,9 +147,9 @@ function StudentsList() {
                     })()}
                   </td>
                   <td className="px-4 py-3">
-                    {s.payment_status === "paid" && <Badge className="bg-success text-success-foreground">مسدد بالكامل</Badge>}
-                    {s.payment_status === "partial" && <Badge className="bg-warning text-warning-foreground">دفعة جزئية</Badge>}
-                    {s.payment_status === "unpaid" && <Badge variant="destructive">غير مسدد</Badge>}
+                    {s.payment_status === "paid"
+                      ? <Badge className="bg-success text-success-foreground">مسدد بالكامل</Badge>
+                      : <Badge variant="destructive">غير مسدد</Badge>}
                   </td>
                 </tr>
               ))}

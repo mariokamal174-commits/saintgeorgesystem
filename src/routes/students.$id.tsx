@@ -6,7 +6,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { ArrowRight, Receipt, FileCheck2 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
@@ -73,9 +72,9 @@ function StudentDetail() {
         <StatCard label="المتبقي" value={fmt(Number(s.remaining_balance))} tone={Number(s.remaining_balance) > 0 ? "warning" : "success"} />
         <Card><CardContent className="p-4">
           <div className="text-sm text-muted-foreground mb-2">الحالة</div>
-          {s.payment_status === "paid" && <Badge className="bg-success text-success-foreground text-base">مسدد بالكامل</Badge>}
-          {s.payment_status === "partial" && <Badge className="bg-warning text-warning-foreground text-base">دفعة جزئية</Badge>}
-          {s.payment_status === "unpaid" && <Badge variant="destructive" className="text-base">غير مسدد</Badge>}
+          {s.payment_status === "paid"
+            ? <Badge className="bg-success text-success-foreground text-base">مسدد بالكامل</Badge>
+            : <Badge variant="destructive" className="text-base">غير مسدد</Badge>}
         </CardContent></Card>
       </div>
 
@@ -143,35 +142,30 @@ function StudentDetail() {
                       <td className="px-3 py-2 text-muted-foreground">{i.due_date ?? "—"}</td>
                       <td className="px-3 py-2">
                         {canEditInstallments ? (
-                          <Select
-                            value={i.status}
-                            onValueChange={async (v) => {
-                              const { error } = await supabase.from("installments")
-                                .update({ status: v as "paid" | "partial" | "unpaid" })
-                                .eq("id", i.id);
-                              if (error) toast.error(error.message);
-                              else {
-                                toast.success("تم تحديث حالة القسط");
-                                logActivity("update", "installment", i.id, {
-                                  student_name: s.full_name, item: i.label, status: v, amount: Number(i.amount),
-                                });
-                                refetch();
-                              }
-                            }}
-                          >
-                            <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="paid">مدفوع</SelectItem>
-                              <SelectItem value="partial">جزئي</SelectItem>
-                              <SelectItem value="unpaid">غير مدفوع</SelectItem>
-                            </SelectContent>
-                          </Select>
+                          <div className="flex items-center gap-2">
+                            <Switch
+                              checked={i.status === "paid"}
+                              onCheckedChange={async (checked) => {
+                                const next = checked ? "paid" : "unpaid";
+                                const { error } = await supabase.from("installments")
+                                  .update({ status: next })
+                                  .eq("id", i.id);
+                                if (error) toast.error(error.message);
+                                else {
+                                  toast.success("تم تحديث حالة القسط");
+                                  logActivity("update", "installment", i.id, {
+                                    student_name: s.full_name, item: i.label, status: next, amount: Number(i.amount),
+                                  });
+                                  refetch();
+                                }
+                              }}
+                            />
+                            <span className="text-sm">{i.status === "paid" ? "مدفوع" : "غير مدفوع"}</span>
+                          </div>
                         ) : (
-                          <>
-                            {i.status === "paid" && <Badge className="bg-success text-success-foreground">مدفوع</Badge>}
-                            {i.status === "partial" && <Badge className="bg-warning text-warning-foreground">جزئي</Badge>}
-                            {i.status === "unpaid" && <Badge variant="destructive">غير مدفوع</Badge>}
-                          </>
+                          i.status === "paid"
+                            ? <Badge className="bg-success text-success-foreground">مدفوع</Badge>
+                            : <Badge variant="destructive">غير مدفوع</Badge>
                         )}
                       </td>
                     </tr>
