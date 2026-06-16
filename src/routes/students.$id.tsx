@@ -142,35 +142,30 @@ function StudentDetail() {
                       <td className="px-3 py-2 text-muted-foreground">{i.due_date ?? "—"}</td>
                       <td className="px-3 py-2">
                         {canEditInstallments ? (
-                          <Select
-                            value={i.status}
-                            onValueChange={async (v) => {
-                              const { error } = await supabase.from("installments")
-                                .update({ status: v as "paid" | "partial" | "unpaid" })
-                                .eq("id", i.id);
-                              if (error) toast.error(error.message);
-                              else {
-                                toast.success("تم تحديث حالة القسط");
-                                logActivity("update", "installment", i.id, {
-                                  student_name: s.full_name, item: i.label, status: v, amount: Number(i.amount),
-                                });
-                                refetch();
-                              }
-                            }}
-                          >
-                            <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="paid">مدفوع</SelectItem>
-                              <SelectItem value="partial">جزئي</SelectItem>
-                              <SelectItem value="unpaid">غير مدفوع</SelectItem>
-                            </SelectContent>
-                          </Select>
+                          <div className="flex items-center gap-2">
+                            <Switch
+                              checked={i.status === "paid"}
+                              onCheckedChange={async (checked) => {
+                                const next = checked ? "paid" : "unpaid";
+                                const { error } = await supabase.from("installments")
+                                  .update({ status: next })
+                                  .eq("id", i.id);
+                                if (error) toast.error(error.message);
+                                else {
+                                  toast.success("تم تحديث حالة القسط");
+                                  logActivity("update", "installment", i.id, {
+                                    student_name: s.full_name, item: i.label, status: next, amount: Number(i.amount),
+                                  });
+                                  refetch();
+                                }
+                              }}
+                            />
+                            <span className="text-sm">{i.status === "paid" ? "مدفوع" : "غير مدفوع"}</span>
+                          </div>
                         ) : (
-                          <>
-                            {i.status === "paid" && <Badge className="bg-success text-success-foreground">مدفوع</Badge>}
-                            {i.status === "partial" && <Badge className="bg-warning text-warning-foreground">جزئي</Badge>}
-                            {i.status === "unpaid" && <Badge variant="destructive">غير مدفوع</Badge>}
-                          </>
+                          i.status === "paid"
+                            ? <Badge className="bg-success text-success-foreground">مدفوع</Badge>
+                            : <Badge variant="destructive">غير مدفوع</Badge>
                         )}
                       </td>
                     </tr>
