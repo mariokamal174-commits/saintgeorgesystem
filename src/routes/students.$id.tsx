@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppShell } from "@/components/app-shell";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +22,7 @@ function StudentDetail() {
   const { isFinance, isAdmin, isStudentAffairs } = useAuth();
   const canEditInstallments = isFinance || isAdmin;
   const canEditDelivery = isStudentAffairs || isAdmin;
+  const [savingPayment, setSavingPayment] = useState(false);
   const { data, refetch } = useQuery({
     queryKey: ["student", id],
     queryFn: async () => {
@@ -49,6 +50,20 @@ function StudentDetail() {
   const s = data.student;
   const fmt = (n: number) => new Intl.NumberFormat("ar-EG").format(Math.round(n));
 
+  async function setStudentPaid(nextPaid: boolean) {
+    setSavingPayment(true);
+    const { error } = await supabase.rpc("set_student_payment_status", { _student_id: id, _paid: nextPaid });
+    setSavingPayment(false);
+    if (error) return toast.error(error.message);
+    toast.success(nextPaid ? "تم تغيير الحالة إلى مسدد بالكامل" : "تم تغيير الحالة إلى غير مسدد");
+    await logActivity("update", "student_payment", id, {
+      student_name: s.full_name,
+      status: nextPaid ? "paid" : "unpaid",
+      amount: Number(s.total_due) || 0,
+    });
+    refetch();
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -72,9 +87,19 @@ function StudentDetail() {
         <StatCard label="المتبقي" value={fmt(Number(s.remaining_balance))} tone={Number(s.remaining_balance) > 0 ? "warning" : "success"} />
         <Card><CardContent className="p-4">
           <div className="text-sm text-muted-foreground mb-2">الحالة</div>
-          {s.payment_status === "paid"
-            ? <Badge className="bg-success text-success-foreground text-base">مسدد بالكامل</Badge>
-            : <Badge variant="destructive" className="text-base">غير مسدد</Badge>}
+          <div className="flex items-center justify-between gap-3">
+            {s.payment_status === "paid"
+              ? <Badge className="bg-success text-success-foreground text-base">مسدد بالكامل</Badge>
+              : <Badge variant="destructive" className="text-base">غير مسدد</Badge>}
+            {canEditInstallments && (
+              <Switch
+                checked={s.payment_status === "paid"}
+                disabled={savingPayment}
+                onCheckedChange={setStudentPaid}
+                aria-label="تغيير حالة السداد"
+              />
+            )}
+          </div>
         </CardContent></Card>
       </div>
 
@@ -148,7 +173,7 @@ function StudentDetail() {
                               onCheckedChange={async (checked) => {
                                 const next = checked ? "paid" : "unpaid";
                                 const { error } = await supabase.from("installments")
-                                  .update({ status: next })
+                                  .update({ status: next, paid_amount: checked ? Number(i.amount) : 0 })
                                   .eq("id", i.id);
                                 if (error) toast.error(error.message);
                                 else {

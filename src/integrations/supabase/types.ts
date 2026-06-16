@@ -472,6 +472,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      ensure_student_installments: {
+        Args: { _student_id: string }
+        Returns: undefined
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -481,6 +485,41 @@ export type Database = {
       }
       is_approved: { Args: { _user_id: string }; Returns: boolean }
       recompute_student_totals: {
+        Args: { _student_id: string }
+        Returns: undefined
+      }
+      set_student_payment_status: {
+        Args: { _paid: boolean; _student_id: string }
+        Returns: {
+          class_id: string | null
+          created_at: string
+          created_by: string | null
+          first_installment: number
+          full_name: string
+          grade_id: string | null
+          guardian_name: string | null
+          id: string
+          national_id: string | null
+          notes: string | null
+          other_fees: number
+          payment_status: Database["public"]["Enums"]["payment_status"]
+          phone: string | null
+          previous_installments: number
+          remaining_balance: number | null
+          second_installment: number
+          student_code: string | null
+          total_due: number | null
+          total_paid: number
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "students"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      sync_student_installments_from_totals: {
         Args: { _student_id: string }
         Returns: undefined
       }
