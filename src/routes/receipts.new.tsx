@@ -130,7 +130,7 @@ function NewReceipt() {
       activity_fees: isFirst ? (Number(form.activity_fees) || 0) : 0,
       education_fees: isFirst ? (Number(form.education_fees) || 0) : 0,
       payer_name: form.payer_name || null,
-      status: "pending",
+      status: "approved",
       image_url,
     };
 
@@ -144,7 +144,7 @@ function NewReceipt() {
       receipt_number: form.receipt_number.trim(),
       student_name: studentName,
     });
-    toast.success("تم إنشاء الإيصال — بانتظار الاعتماد");
+    toast.success("تم حفظ الإيصال وتحديث حالة السداد");
     navigate({ to: "/receipts" });
   }
 
@@ -218,7 +218,7 @@ function NewReceipt() {
             )}
 
             <div className="space-y-2"><Label>اسم الدافع</Label><Input value={form.payer_name} onChange={(e) => setForm({ ...form, payer_name: e.target.value })} /></div>
-            <p className="text-xs text-muted-foreground">سيتم احتساب المبلغ في حساب الطالب فور اعتماد الإيصال.</p>
+            <p className="text-xs text-muted-foreground">سيتم احتساب المبلغ في حساب الطالب فور حفظ الإيصال.</p>
           </CardContent>
         </Card>
         <div className="flex gap-3 mt-6">
