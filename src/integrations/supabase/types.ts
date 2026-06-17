@@ -364,69 +364,117 @@ export type Database = {
       }
       students: {
         Row: {
+          address: string | null
+          archived_year: string | null
+          birth_date: string | null
+          birth_place: string | null
           class_id: string | null
           created_at: string
           created_by: string | null
+          father_national_id: string | null
           first_installment: number
           full_name: string
+          gender: string | null
           grade_id: string | null
+          guardian_job: string | null
           guardian_name: string | null
           id: string
+          is_transferred_in: boolean
+          mother_name: string | null
+          mother_national_id: string | null
           national_id: string | null
           notes: string | null
           other_fees: number
           payment_status: Database["public"]["Enums"]["payment_status"]
           phone: string | null
+          phone2: string | null
           previous_installments: number
+          religion: string | null
           remaining_balance: number | null
           second_installment: number
           student_code: string | null
           total_due: number | null
           total_paid: number
+          transfer_out_date: string | null
+          transfer_out_type:
+            | Database["public"]["Enums"]["transfer_out_kind"]
+            | null
           updated_at: string
         }
         Insert: {
+          address?: string | null
+          archived_year?: string | null
+          birth_date?: string | null
+          birth_place?: string | null
           class_id?: string | null
           created_at?: string
           created_by?: string | null
+          father_national_id?: string | null
           first_installment?: number
           full_name: string
+          gender?: string | null
           grade_id?: string | null
+          guardian_job?: string | null
           guardian_name?: string | null
           id?: string
+          is_transferred_in?: boolean
+          mother_name?: string | null
+          mother_national_id?: string | null
           national_id?: string | null
           notes?: string | null
           other_fees?: number
           payment_status?: Database["public"]["Enums"]["payment_status"]
           phone?: string | null
+          phone2?: string | null
           previous_installments?: number
+          religion?: string | null
           remaining_balance?: number | null
           second_installment?: number
           student_code?: string | null
           total_due?: number | null
           total_paid?: number
+          transfer_out_date?: string | null
+          transfer_out_type?:
+            | Database["public"]["Enums"]["transfer_out_kind"]
+            | null
           updated_at?: string
         }
         Update: {
+          address?: string | null
+          archived_year?: string | null
+          birth_date?: string | null
+          birth_place?: string | null
           class_id?: string | null
           created_at?: string
           created_by?: string | null
+          father_national_id?: string | null
           first_installment?: number
           full_name?: string
+          gender?: string | null
           grade_id?: string | null
+          guardian_job?: string | null
           guardian_name?: string | null
           id?: string
+          is_transferred_in?: boolean
+          mother_name?: string | null
+          mother_national_id?: string | null
           national_id?: string | null
           notes?: string | null
           other_fees?: number
           payment_status?: Database["public"]["Enums"]["payment_status"]
           phone?: string | null
+          phone2?: string | null
           previous_installments?: number
+          religion?: string | null
           remaining_balance?: number | null
           second_installment?: number
           student_code?: string | null
           total_due?: number | null
           total_paid?: number
+          transfer_out_date?: string | null
+          transfer_out_type?:
+            | Database["public"]["Enums"]["transfer_out_kind"]
+            | null
           updated_at?: string
         }
         Relationships: [
@@ -491,25 +539,41 @@ export type Database = {
       set_student_payment_status: {
         Args: { _paid: boolean; _student_id: string }
         Returns: {
+          address: string | null
+          archived_year: string | null
+          birth_date: string | null
+          birth_place: string | null
           class_id: string | null
           created_at: string
           created_by: string | null
+          father_national_id: string | null
           first_installment: number
           full_name: string
+          gender: string | null
           grade_id: string | null
+          guardian_job: string | null
           guardian_name: string | null
           id: string
+          is_transferred_in: boolean
+          mother_name: string | null
+          mother_national_id: string | null
           national_id: string | null
           notes: string | null
           other_fees: number
           payment_status: Database["public"]["Enums"]["payment_status"]
           phone: string | null
+          phone2: string | null
           previous_installments: number
+          religion: string | null
           remaining_balance: number | null
           second_installment: number
           student_code: string | null
           total_due: number | null
           total_paid: number
+          transfer_out_date: string | null
+          transfer_out_type:
+            | Database["public"]["Enums"]["transfer_out_kind"]
+            | null
           updated_at: string
         }
         SetofOptions: {
@@ -529,6 +593,7 @@ export type Database = {
       app_role: "admin" | "student_affairs" | "finance"
       payment_status: "paid" | "partial" | "unpaid"
       receipt_status: "pending" | "approved" | "rejected"
+      transfer_out_kind: "transfer" | "withdrawal"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -660,6 +725,7 @@ export const Constants = {
       app_role: ["admin", "student_affairs", "finance"],
       payment_status: ["paid", "partial", "unpaid"],
       receipt_status: ["pending", "approved", "rejected"],
+      transfer_out_kind: ["transfer", "withdrawal"],
     },
   },
 } as const
