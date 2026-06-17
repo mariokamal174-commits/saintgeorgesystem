@@ -23,7 +23,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 
-export const Route = createFileRoute("/students/$id/")({
+export const Route = createFileRoute("/students/$id")({
   head: () => ({ meta: [{ title: "ملف الطالب" }] }),
   component: () => <AppShell><StudentDetail /></AppShell>,
 });
