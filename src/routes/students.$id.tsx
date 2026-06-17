@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { AppShell } from "@/components/app-shell";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
@@ -7,22 +7,39 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { ArrowRight, Receipt, FileCheck2 } from "lucide-react";
+import { ArrowRight, Receipt, FileCheck2, Pencil, Trash2, Printer } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
 import { logActivity } from "@/lib/audit";
+import { formatAge } from "@/lib/age";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 
-export const Route = createFileRoute("/students/$id")({
+export const Route = createFileRoute("/students/$id/")({
   head: () => ({ meta: [{ title: "ملف الطالب" }] }),
   component: () => <AppShell><StudentDetail /></AppShell>,
 });
 
 function StudentDetail() {
   const { id } = Route.useParams();
+  const navigate = useNavigate();
   const { isFinance, isAdmin, isStudentAffairs } = useAuth();
   const canEditInstallments = isFinance || isAdmin;
   const canEditDelivery = isStudentAffairs || isAdmin;
+  const canEditStudent = isStudentAffairs || isAdmin;
   const [savingPayment, setSavingPayment] = useState(false);
+  const [transferDialogOpen, setTransferDialogOpen] = useState(false);
+  const [transferType, setTransferType] = useState<"transfer" | "withdrawal">("transfer");
+  const [transferDate, setTransferDate] = useState(() => new Date().toISOString().slice(0, 10));
+
   const { data, refetch } = useQuery({
     queryKey: ["student", id],
     queryFn: async () => {
@@ -56,11 +73,35 @@ function StudentDetail() {
     setSavingPayment(false);
     if (error) return toast.error(error.message);
     toast.success(nextPaid ? "تم تغيير الحالة إلى مسدد بالكامل" : "تم تغيير الحالة إلى غير مسدد");
-    await logActivity("update", "student_payment", id, {
-      student_name: s.full_name,
-      status: nextPaid ? "paid" : "unpaid",
-      amount: Number(s.total_due) || 0,
-    });
+    await logActivity("update", "student_payment", id, { student_name: s.full_name, status: nextPaid ? "paid" : "unpaid", amount: Number(s.total_due) || 0 });
+    refetch();
+  }
+
+  async function deleteStudent() {
+    const { error } = await supabase.from("students").delete().eq("id", id);
+    if (error) return toast.error(error.message);
+    await logActivity("delete", "student", id, { full_name: s.full_name });
+    toast.success("تم حذف الطالب");
+    navigate({ to: "/students" });
+  }
+
+  async function confirmTransferOut() {
+    const { error } = await supabase.from("students").update({
+      transfer_out_type: transferType,
+      transfer_out_date: transferDate,
+    }).eq("id", id);
+    if (error) return toast.error(error.message);
+    await logActivity("update", "student_transfer_out", id, { student_name: s.full_name, type: transferType, date: transferDate });
+    toast.success(transferType === "transfer" ? "تم تسجيله كمحول" : "تم تسجيله كمسحوب");
+    setTransferDialogOpen(false);
+    refetch();
+  }
+
+  async function clearTransferOut() {
+    const { error } = await supabase.from("students").update({ transfer_out_type: null, transfer_out_date: null }).eq("id", id);
+    if (error) return toast.error(error.message);
+    await logActivity("update", "student_transfer_out_clear", id, { student_name: s.full_name });
+    toast.success("تم إلغاء حالة السحب");
     refetch();
   }
 
@@ -71,14 +112,51 @@ function StudentDetail() {
           <Link to="/students"><Button variant="ghost" size="sm"><ArrowRight className="h-4 w-4" /></Button></Link>
           <div>
             <h1 className="text-2xl font-bold">{s.full_name}</h1>
-            <p className="text-sm text-muted-foreground">{s.student_code ?? "بدون كود"} · {s.national_id ?? "بدون رقم قومي"}</p>
+            <p className="text-sm text-muted-foreground">
+              {s.student_code ?? "بدون كود"} · {s.national_id ?? "بدون رقم قومي"} · السن: {formatAge(s.birth_date)}
+            </p>
+            <div className="flex gap-2 mt-1">
+              {s.is_transferred_in && <Badge variant="outline">محول إلى المدرسة</Badge>}
+              {s.transfer_out_type === "transfer" && <Badge className="bg-warning text-warning-foreground">محول (سُحب الملف)</Badge>}
+              {s.transfer_out_type === "withdrawal" && <Badge variant="destructive">مسحوب</Badge>}
+              {s.archived_year && <Badge variant="secondary">مؤرشف: {s.archived_year}</Badge>}
+            </div>
           </div>
         </div>
-        {(isFinance || isAdmin) && (
-          <Link to="/receipts/new" search={{ studentId: id }}>
-            <Button><Receipt className="ml-2 h-4 w-4" />إضافة إيصال</Button>
+        <div className="flex flex-wrap gap-2">
+          <Link to="/students/$id/print" params={{ id }}>
+            <Button variant="outline"><Printer className="ml-2 h-4 w-4" />طباعة</Button>
           </Link>
-        )}
+          {canEditStudent && (
+            <Link to="/students/$id/edit" params={{ id }}>
+              <Button variant="outline"><Pencil className="ml-2 h-4 w-4" />تعديل</Button>
+            </Link>
+          )}
+          {canEditStudent && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive"><Trash2 className="ml-2 h-4 w-4" />حذف</Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>حذف الطالب نهائيًا؟</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    سيتم حذف بيانات الطالب ({s.full_name}) وجميع الإيصالات والأقساط المرتبطة به. لا يمكن التراجع.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                  <AlertDialogAction onClick={deleteStudent}>حذف نهائيًا</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+          {(isFinance || isAdmin) && (
+            <Link to="/receipts/new" search={{ studentId: id }}>
+              <Button><Receipt className="ml-2 h-4 w-4" />إضافة إيصال</Button>
+            </Link>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -92,12 +170,7 @@ function StudentDetail() {
               ? <Badge className="bg-success text-success-foreground text-base">مسدد بالكامل</Badge>
               : <Badge variant="destructive" className="text-base">غير مسدد</Badge>}
             {canEditInstallments && (
-              <Switch
-                checked={s.payment_status === "paid"}
-                disabled={savingPayment}
-                onCheckedChange={setStudentPaid}
-                aria-label="تغيير حالة السداد"
-              />
+              <Switch checked={s.payment_status === "paid"} disabled={savingPayment} onCheckedChange={setStudentPaid} aria-label="تغيير حالة السداد" />
             )}
           </div>
         </CardContent></Card>
@@ -119,9 +192,7 @@ function StudentDetail() {
         <Card>
           <CardHeader><CardTitle>الإيصالات</CardTitle></CardHeader>
           <CardContent>
-            {data.receipts.length === 0 ? (
-              <p className="text-sm text-muted-foreground">لا توجد إيصالات بعد</p>
-            ) : (
+            {data.receipts.length === 0 ? <p className="text-sm text-muted-foreground">لا توجد إيصالات بعد</p> : (
               <div className="space-y-2">
                 {data.receipts.map(r => (
                   <div key={r.id} className="flex items-center justify-between p-2 rounded-md bg-muted/50">
@@ -144,11 +215,28 @@ function StudentDetail() {
       </div>
 
       <Card>
+        <CardHeader><CardTitle>بيانات الطالب التفصيلية</CardTitle></CardHeader>
+        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+          <Row label="تاريخ الميلاد" value={s.birth_date ?? "—"} />
+          <Row label="السن في 1/10" value={formatAge(s.birth_date)} />
+          <Row label="محل الميلاد" value={s.birth_place ?? "—"} />
+          <Row label="النوع" value={s.gender ?? "—"} />
+          <Row label="الديانة" value={s.religion ?? "—"} />
+          <Row label="اسم الأم" value={s.mother_name ?? "—"} />
+          <Row label="الرقم القومي للأم" value={s.mother_national_id ?? "—"} />
+          <Row label="الرقم القومي للأب" value={s.father_national_id ?? "—"} />
+          <Row label="ولي الأمر" value={s.guardian_name ?? "—"} />
+          <Row label="وظيفة ولي الأمر" value={s.guardian_job ?? "—"} />
+          <Row label="العنوان" value={s.address ?? "—"} />
+          <Row label="هاتف 1" value={s.phone ?? "—"} />
+          <Row label="هاتف 2" value={s.phone2 ?? "—"} />
+        </CardContent>
+      </Card>
+
+      <Card>
         <CardHeader><CardTitle>أقساط مفصلة</CardTitle></CardHeader>
         <CardContent>
-          {data.installments.length === 0 ? (
-            <p className="text-sm text-muted-foreground">لا توجد أقساط مسجلة</p>
-          ) : (
+          {data.installments.length === 0 ? <p className="text-sm text-muted-foreground">لا توجد أقساط مسجلة</p> : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="text-muted-foreground">
@@ -168,8 +256,7 @@ function StudentDetail() {
                       <td className="px-3 py-2">
                         {canEditInstallments ? (
                           <div className="flex items-center gap-2">
-                            <Switch
-                              checked={i.status === "paid"}
+                            <Switch checked={i.status === "paid"}
                               onCheckedChange={async (checked) => {
                                 const next = checked ? "paid" : "unpaid";
                                 const { error } = await supabase.from("installments")
@@ -178,20 +265,15 @@ function StudentDetail() {
                                 if (error) toast.error(error.message);
                                 else {
                                   toast.success("تم تحديث حالة القسط");
-                                  logActivity("update", "installment", i.id, {
-                                    student_name: s.full_name, item: i.label, status: next, amount: Number(i.amount),
-                                  });
+                                  logActivity("update", "installment", i.id, { student_name: s.full_name, item: i.label, status: next, amount: Number(i.amount) });
                                   refetch();
                                 }
-                              }}
-                            />
+                              }} />
                             <span className="text-sm">{i.status === "paid" ? "مدفوع" : "غير مدفوع"}</span>
                           </div>
-                        ) : (
-                          i.status === "paid"
-                            ? <Badge className="bg-success text-success-foreground">مدفوع</Badge>
-                            : <Badge variant="destructive">غير مدفوع</Badge>
-                        )}
+                        ) : (i.status === "paid"
+                          ? <Badge className="bg-success text-success-foreground">مدفوع</Badge>
+                          : <Badge variant="destructive">غير مدفوع</Badge>)}
                       </td>
                     </tr>
                   ))}
@@ -207,15 +289,49 @@ function StudentDetail() {
         studentName={s.full_name}
         delivery={data.delivery as { id: string; delivered: boolean; delivered_at: string | null } | null}
         canEdit={canEditDelivery}
+        hasTransferOut={!!s.transfer_out_type}
+        onDelivered={() => setTransferDialogOpen(true)}
+        onClearTransfer={clearTransferOut}
         onChange={refetch}
       />
+
+      <Dialog open={transferDialogOpen} onOpenChange={setTransferDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>تم تسليم الملف — هل الطالب محول أم مسحوب؟</DialogTitle>
+            <DialogDescription>اختر نوع الإخلاء وتاريخه ليُسجل في كشف المحولين/المسحوبين.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <RadioGroup value={transferType} onValueChange={(v) => setTransferType(v as never)}>
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="transfer" id="t-tr" />
+                <Label htmlFor="t-tr">محول لمدرسة أخرى</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="withdrawal" id="t-wd" />
+                <Label htmlFor="t-wd">مسحوب من المدرسة</Label>
+              </div>
+            </RadioGroup>
+            <div className="space-y-2">
+              <Label>تاريخ سحب الملف</Label>
+              <Input type="date" value={transferDate} onChange={(e) => setTransferDate(e.target.value)} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTransferDialogOpen(false)}>تخطي</Button>
+            <Button onClick={confirmTransferOut}>تأكيد</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
-function DeliveryCard({ studentId, studentName, delivery, canEdit, onChange }: {
-  studentId: string; studentName: string; delivery: { id: string; delivered: boolean; delivered_at: string | null } | null;
-  canEdit: boolean; onChange: () => void;
+function DeliveryCard({ studentId, studentName, delivery, canEdit, hasTransferOut, onDelivered, onClearTransfer, onChange }: {
+  studentId: string; studentName: string;
+  delivery: { id: string; delivered: boolean; delivered_at: string | null } | null;
+  canEdit: boolean; hasTransferOut: boolean;
+  onDelivered: () => void; onClearTransfer: () => void; onChange: () => void;
 }) {
   const delivered = !!delivery?.delivered;
   async function toggle(next: boolean) {
@@ -232,23 +348,19 @@ function DeliveryCard({ studentId, studentName, delivery, canEdit, onChange }: {
     }
     if (error) return toast.error(error.message);
     toast.success(next ? "تم تسجيل تسليم الملف" : "تم إلغاء تسليم الملف");
-    logActivity("update", "delivery", delivery?.id ?? null, {
-      student_name: studentName, item: "ملف الطالب", delivered: next,
-    });
+    logActivity("update", "delivery", delivery?.id ?? null, { student_name: studentName, item: "ملف الطالب", delivered: next });
     onChange();
+    if (next && !hasTransferOut) onDelivered();
+    if (!next && hasTransferOut) onClearTransfer();
   }
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2"><FileCheck2 className="h-5 w-5" />تسليم الملف</CardTitle>
-      </CardHeader>
+      <CardHeader><CardTitle className="flex items-center gap-2"><FileCheck2 className="h-5 w-5" />تسليم الملف</CardTitle></CardHeader>
       <CardContent className="flex items-center justify-between flex-wrap gap-3">
         <div className="space-y-1">
-          {delivered ? (
-            <Badge className="bg-success text-success-foreground text-base">تم تسليم الملف</Badge>
-          ) : (
-            <Badge variant="destructive" className="text-base">الملف لم يُسلَّم</Badge>
-          )}
+          {delivered
+            ? <Badge className="bg-success text-success-foreground text-base">تم تسليم الملف</Badge>
+            : <Badge variant="destructive" className="text-base">الملف لم يُسلَّم</Badge>}
           {delivery?.delivered_at && delivered && (
             <p className="text-xs text-muted-foreground">بتاريخ {new Intl.DateTimeFormat("ar-EG", { dateStyle: "medium" }).format(new Date(delivery.delivered_at))}</p>
           )}
