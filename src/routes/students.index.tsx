@@ -8,8 +8,10 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Plus } from "lucide-react";
+import { Search, Plus, Download } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { formatAge } from "@/lib/age";
+import { exportStudentsToExcel } from "@/lib/student-export";
 
 export const Route = createFileRoute("/students/")({
   head: () => ({ meta: [{ title: "الطلاب | نظام إدارة المدرسة" }] }),
@@ -17,9 +19,10 @@ export const Route = createFileRoute("/students/")({
 });
 
 function StudentsList() {
-  const { isStudentAffairs, isAdmin } = useAuth();
+  const { isStudentAffairs, isAdmin, isFinance } = useAuth();
   const [q, setQ] = useState("");
   const [gradeId, setGradeId] = useState<string>("all");
+  const [archivedFilter, setArchivedFilter] = useState<"current" | "archived" | "all">("current");
   const [page, setPage] = useState(0);
   const PAGE = 25;
 
@@ -46,12 +49,14 @@ function StudentsList() {
   }, [grades]);
 
   const { data, refetch, isLoading } = useQuery({
-    queryKey: ["students", q, page, gradeId],
+    queryKey: ["students", q, page, gradeId, archivedFilter],
     queryFn: async () => {
       let qb = supabase.from("students").select("*, classes(name), grades(name), delivery_tracking(item, delivered)", { count: "exact" })
         .order("created_at", { ascending: false })
         .range(page * PAGE, page * PAGE + PAGE - 1);
       if (gradeId !== "all") qb = qb.eq("grade_id", gradeId);
+      if (archivedFilter === "current") qb = qb.is("archived_year", null);
+      else if (archivedFilter === "archived") qb = qb.not("archived_year", "is", null);
       if (q.trim()) {
         const term = `%${q.trim()}%`;
         qb = qb.or(`full_name.ilike.${term},student_code.ilike.${term},national_id.ilike.${term}`);
@@ -71,6 +76,15 @@ function StudentsList() {
   const fmt = (n: number) => new Intl.NumberFormat("ar-EG").format(Math.round(n));
   const pages = useMemo(() => Math.max(1, Math.ceil((data?.total ?? 0) / PAGE)), [data]);
 
+  async function exportAll() {
+    let qb = supabase.from("students").select("*").order("full_name");
+    if (gradeId !== "all") qb = qb.eq("grade_id", gradeId);
+    if (archivedFilter === "current") qb = qb.is("archived_year", null);
+    else if (archivedFilter === "archived") qb = qb.not("archived_year", "is", null);
+    const { data: all } = await qb;
+    exportStudentsToExcel((all ?? []) as never, "students.xlsx");
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -78,11 +92,14 @@ function StudentsList() {
           <h1 className="text-3xl font-bold">الطلاب</h1>
           <p className="text-muted-foreground mt-1">إجمالي {fmt(data?.total ?? 0)} طالب</p>
         </div>
-        {(isStudentAffairs || isAdmin) && (
-          <Link to="/students/new">
-            <Button><Plus className="ml-2 h-4 w-4" />طالب جديد</Button>
-          </Link>
-        )}
+        <div className="flex gap-2 flex-wrap">
+          {(isStudentAffairs || isAdmin || isFinance) && (
+            <Button variant="outline" onClick={exportAll}><Download className="ml-2 h-4 w-4" />تصدير Excel</Button>
+          )}
+          {(isStudentAffairs || isAdmin) && (
+            <Link to="/students/new"><Button><Plus className="ml-2 h-4 w-4" />طالب جديد</Button></Link>
+          )}
+        </div>
       </div>
 
       <Card className="p-4">
@@ -105,6 +122,14 @@ function StudentsList() {
               ))}
             </SelectContent>
           </Select>
+          <Select value={archivedFilter} onValueChange={(v) => { setArchivedFilter(v as never); setPage(0); }}>
+            <SelectTrigger className="md:w-44"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="current">الحاليون فقط</SelectItem>
+              <SelectItem value="archived">المؤرشفون فقط</SelectItem>
+              <SelectItem value="all">الكل</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </Card>
 
@@ -115,28 +140,26 @@ function StudentsList() {
               <tr>
                 <th className="px-4 py-3 text-right">الاسم</th>
                 <th className="px-4 py-3 text-right">الكود</th>
+                <th className="px-4 py-3 text-right">السن (1/10)</th>
                 <th className="px-4 py-3 text-right">الفصل</th>
-                <th className="px-4 py-3 text-right">القسط الأول</th>
-                <th className="px-4 py-3 text-right">القسط الثاني</th>
-                <th className="px-4 py-3 text-right">أقساط سابقة</th>
                 <th className="px-4 py-3 text-right">المتبقي</th>
                 <th className="px-4 py-3 text-right">الملف</th>
                 <th className="px-4 py-3 text-right">الحالة</th>
               </tr>
             </thead>
             <tbody>
-              {isLoading && <tr><td colSpan={9} className="text-center py-8 text-muted-foreground">جاري التحميل...</td></tr>}
-              {!isLoading && data?.rows.length === 0 && <tr><td colSpan={9} className="text-center py-8 text-muted-foreground">لا يوجد طلاب</td></tr>}
+              {isLoading && <tr><td colSpan={7} className="text-center py-8 text-muted-foreground">جاري التحميل...</td></tr>}
+              {!isLoading && data?.rows.length === 0 && <tr><td colSpan={7} className="text-center py-8 text-muted-foreground">لا يوجد طلاب</td></tr>}
               {data?.rows.map((s: any) => (
-                <tr key={s.id} className="border-t hover:bg-muted/50 cursor-pointer">
+                <tr key={s.id} className="border-t hover:bg-muted/50">
                   <td className="px-4 py-3">
                     <Link to="/students/$id" params={{ id: s.id }} className="font-medium hover:text-primary">{s.full_name}</Link>
+                    {s.archived_year && <Badge variant="secondary" className="mr-2 text-xs">{s.archived_year}</Badge>}
+                    {s.transfer_out_type && <Badge variant="outline" className="mr-2 text-xs">{s.transfer_out_type === "transfer" ? "محول" : "مسحوب"}</Badge>}
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">{s.student_code ?? "—"}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{formatAge(s.birth_date)}</td>
                   <td className="px-4 py-3 text-muted-foreground">{s.classes?.name ?? s.grades?.name ?? "—"}</td>
-                  <td className="px-4 py-3">{fmt(Number(s.first_installment))}</td>
-                  <td className="px-4 py-3">{fmt(Number(s.second_installment))}</td>
-                  <td className="px-4 py-3">{fmt(Number(s.previous_installments))}</td>
                   <td className="px-4 py-3 font-medium">{fmt(Number(s.remaining_balance))}</td>
                   <td className="px-4 py-3">
                     {(() => {

@@ -25,13 +25,46 @@ interface Preview {
 
 const COL_ALIASES: Record<string, string[]> = {
   full_name: ["الاسم","اسم الطالب","name","student_name","fullname"],
-  student_code: ["كود","الكود","كود الطالب","student_code","code","id"],
-  national_id: ["الرقم القومي","رقم قومي","national_id","nid"],
+  student_code: ["كود","الكود","كود الطالب","student_code","code"],
+  national_id: ["الرقم القومي للطالب","الرقم القومي","رقم قومي","national_id","nid"],
+  birth_date: ["تاريخ الميلاد","birth_date","dob"],
+  birth_place: ["محل الميلاد","birth_place"],
+  gender: ["النوع","gender"],
+  religion: ["الديانة","religion"],
+  mother_name: ["اسم الأم","mother_name"],
+  mother_national_id: ["الرقم القومى للام","الرقم القومي للأم","mother_national_id"],
+  father_national_id: ["الرقم القومي للأب","الرقم القومى للاب","father_national_id"],
+  guardian_job: ["وظيفة ولي الأمر","guardian_job"],
+  guardian_name: ["اسم ولي الأمر","guardian_name"],
+  address: ["العنوان","address"],
+  phone: ["رقم الموبايل","الهاتف","phone","mobile"],
   first_installment: ["القسط الأول","قسط اول","first_installment"],
   second_installment: ["القسط الثاني","قسط ثاني","second_installment"],
   previous_installments: ["أقساط سابقة","أقساط سنوات سابقة","previous_installments"],
   other_fees: ["رسوم أخرى","رسوم اخرى","other_fees"],
 };
+
+function parseBirthDate(v: unknown): string | null {
+  if (v == null || v === "") return null;
+  if (typeof v === "number") {
+    // Excel serial date
+    const d = new Date(Math.round((v - 25569) * 86400 * 1000));
+    return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
+  }
+  const s = String(v).trim();
+  // Try M/D/YYYY or D/M/YYYY
+  const m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+  if (m) {
+    const a = Number(m[1]), b = Number(m[2]), y = Number(m[3].length === 2 ? "20" + m[3] : m[3]);
+    // Assume M/D/Y as in sample (12/20/2020)
+    const month = a > 12 ? b : a;
+    const day = a > 12 ? a : b;
+    const d = new Date(y, month - 1, day);
+    return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
+  }
+  const d = new Date(s);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
+}
 
 function normalize(row: RowMap): RowMap {
   const out: RowMap = {};
@@ -98,6 +131,17 @@ function Imports() {
         full_name: String(r.full_name ?? "").trim() || "بدون اسم",
         student_code: r.student_code ? String(r.student_code) : null,
         national_id: r.national_id ? String(r.national_id) : null,
+        birth_date: parseBirthDate(r.birth_date),
+        birth_place: r.birth_place ? String(r.birth_place) : null,
+        gender: r.gender ? String(r.gender) : null,
+        religion: r.religion ? String(r.religion) : null,
+        mother_name: r.mother_name ? String(r.mother_name) : null,
+        mother_national_id: r.mother_national_id ? String(r.mother_national_id) : null,
+        father_national_id: r.father_national_id ? String(r.father_national_id) : null,
+        guardian_name: r.guardian_name ? String(r.guardian_name) : null,
+        guardian_job: r.guardian_job ? String(r.guardian_job) : null,
+        address: r.address ? String(r.address) : null,
+        phone: r.phone ? String(r.phone) : null,
         first_installment: Number(r.first_installment ?? 0) || 0,
         second_installment: Number(r.second_installment ?? 0) || 0,
         previous_installments: Number(r.previous_installments ?? 0) || 0,
