@@ -41,6 +41,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     { to: "/", label: "لوحة التحكم", icon: LayoutDashboard, show: true },
     { to: "/students", label: "الطلاب", icon: Users, show: true },
     { to: "/receipts", label: "الإيصالات", icon: Receipt, show: isFinance || isAdmin },
+    { to: "/finance/installments", label: "أقساط الفصول", icon: Wallet, show: isFinance || isAdmin },
     { to: "/imports", label: "استيراد ملفات", icon: Upload, show: isStudentAffairs || isAdmin },
     { to: "/transfers", label: "المحولين والمسحوبين", icon: UserMinus, show: true },
     { to: "/archive", label: "الأرشيف", icon: Archive, show: true },
