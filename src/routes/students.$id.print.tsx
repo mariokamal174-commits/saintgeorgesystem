@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { AppShell } from "@/components/app-shell";
+
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,7 +10,7 @@ import { formatAge } from "@/lib/age";
 
 export const Route = createFileRoute("/students/$id/print")({
   head: () => ({ meta: [{ title: "طباعة بيانات الطالب" }] }),
-  component: () => <AppShell><PrintStudent /></AppShell>,
+  component: PrintStudent,
 });
 
 const FIELDS: { key: string; label: string; format?: (v: unknown, s: Record<string, unknown>) => string }[] = [

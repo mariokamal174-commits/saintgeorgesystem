@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { AppShell } from "@/components/app-shell";
+
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,7 +13,7 @@ import { ArrowRight } from "lucide-react";
 
 export const Route = createFileRoute("/students/$id/edit")({
   head: () => ({ meta: [{ title: "تعديل الطالب" }] }),
-  component: () => <AppShell><EditStudent /></AppShell>,
+  component: EditStudent,
 });
 
 function EditStudent() {
