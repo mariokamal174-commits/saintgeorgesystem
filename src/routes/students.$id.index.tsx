@@ -25,7 +25,7 @@ import { Input } from "@/components/ui/input";
 
 export const Route = createFileRoute("/students/$id/")({
   head: () => ({ meta: [{ title: "ملف الطالب" }] }),
-  component: () => <AppShell><StudentDetail /></AppShell>,
+  component: StudentDetail,
 });
 
 function StudentDetail() {
