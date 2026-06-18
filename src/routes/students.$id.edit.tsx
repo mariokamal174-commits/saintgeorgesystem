@@ -13,7 +13,7 @@ import { ArrowRight } from "lucide-react";
 
 export const Route = createFileRoute("/students/$id/edit")({
   head: () => ({ meta: [{ title: "تعديل الطالب" }] }),
-  component: () => <AppShell><EditStudent /></AppShell>,
+  component: EditStudent,
 });
 
 function EditStudent() {
