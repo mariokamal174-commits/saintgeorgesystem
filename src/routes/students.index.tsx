@@ -97,6 +97,9 @@ function StudentsList() {
             <Button variant="outline" onClick={exportAll}><Download className="ml-2 h-4 w-4" />تصدير Excel</Button>
           )}
           {(isStudentAffairs || isAdmin) && (
+            <Link to="/imports"><Button variant="outline"><Plus className="ml-2 h-4 w-4" />استيراد من Excel</Button></Link>
+          )}
+          {(isStudentAffairs || isAdmin) && (
             <Link to="/students/new"><Button><Plus className="ml-2 h-4 w-4" />طالب جديد</Button></Link>
           )}
         </div>
