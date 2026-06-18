@@ -80,6 +80,43 @@ function Admin() {
         </div>
       </Card>
       <p className="text-xs text-muted-foreground">ملاحظة: لتعيين أول مستخدم كمسؤول، فعّل حسابه أولاً ثم أضِف دور "admin" له من قاعدة البيانات.</p>
+      <DangerZone />
     </div>
+  );
+}
+
+function DangerZone() {
+  async function wipeAll() {
+    const { error } = await supabase.from("students").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+    if (error) toast.error(error.message); else toast.success("تم مسح جميع بيانات الطلاب");
+  }
+  async function wipeArchived() {
+    const { error } = await supabase.from("students").delete().not("archived_year", "is", null);
+    if (error) toast.error(error.message); else toast.success("تم مسح بيانات السنوات المؤرشفة");
+  }
+  async function wipeCurrent() {
+    const { error } = await supabase.from("students").delete().is("archived_year", null);
+    if (error) toast.error(error.message); else toast.success("تم مسح بيانات السنة الحالية");
+  }
+  return (
+    <Card className="p-6 border-destructive/40">
+      <div className="space-y-3">
+        <h2 className="text-xl font-bold text-destructive">منطقة الخطر — مسح البيانات</h2>
+        <p className="text-sm text-muted-foreground">عمليات لا يمكن التراجع عنها. استخدمها بحذر.</p>
+        <div className="flex flex-wrap gap-2 pt-2">
+          <ConfirmBtn label="مسح بيانات السنة الحالية" onConfirm={wipeCurrent} />
+          <ConfirmBtn label="مسح بيانات السنوات المؤرشفة" onConfirm={wipeArchived} />
+          <ConfirmBtn label="مسح كل بيانات الطلاب" onConfirm={wipeAll} />
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function ConfirmBtn({ label, onConfirm }: { label: string; onConfirm: () => void }) {
+  return (
+    <Button variant="destructive" onClick={() => {
+      if (window.confirm(`هل أنت متأكد؟\n${label}\nلا يمكن التراجع.`)) onConfirm();
+    }}>{label}</Button>
   );
 }
