@@ -2,7 +2,7 @@ import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/use-auth";
 import {
   GraduationCap, Users, Receipt, Upload, ShieldCheck,
-  LayoutDashboard, LogOut, Loader2, Activity, Archive, UserMinus,
+  LayoutDashboard, LogOut, Loader2, Activity, Archive, UserMinus, Wallet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
