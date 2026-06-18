@@ -10,7 +10,7 @@ import { formatAge } from "@/lib/age";
 
 export const Route = createFileRoute("/students/$id/print")({
   head: () => ({ meta: [{ title: "طباعة بيانات الطالب" }] }),
-  component: () => <AppShell><PrintStudent /></AppShell>,
+  component: PrintStudent,
 });
 
 const FIELDS: { key: string; label: string; format?: (v: unknown, s: Record<string, unknown>) => string }[] = [
