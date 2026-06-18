@@ -22,7 +22,7 @@ void Outlet;
 
 type S = { id: string; full_name: string; student_code: string | null; grade_name: string | null;
   first_installment: number; second_installment: number; previous_installments: number; other_fees: number;
-  total_due: number; total_paid: number; payment_status: string; archived_year: string | null };
+  total_due: number | null; total_paid: number; payment_status: string; archived_year: string | null };
 
 function FinanceInstallments() {
   const { isFinance, isAdmin } = useAuth();
@@ -35,12 +35,19 @@ function FinanceInstallments() {
   const { data, refetch } = useQuery({
     queryKey: ["finance-students", q, grade],
     queryFn: async () => {
-      let qb = supabase.from("students").select("id,full_name,student_code,grade_name,first_installment,second_installment,previous_installments,other_fees,total_due,total_paid,payment_status,archived_year").is("archived_year", null).order("full_name").limit(500);
+      let qb = supabase.from("students").select("id,full_name,student_code,first_installment,second_installment,previous_installments,other_fees,total_due,total_paid,payment_status,archived_year,grades(name)").is("archived_year", null).order("full_name").limit(500);
       if (q) qb = qb.ilike("full_name", `%${q}%`);
-      if (grade) qb = qb.ilike("grade_name", `%${grade}%`);
       const { data, error } = await qb;
       if (error) throw error;
-      return (data ?? []) as S[];
+      const rows: S[] = (data ?? []).map((r: Record<string, unknown>) => ({
+        id: r.id as string, full_name: r.full_name as string, student_code: (r.student_code as string | null) ?? null,
+        grade_name: ((r.grades as { name?: string } | null)?.name ?? null),
+        first_installment: Number(r.first_installment) || 0, second_installment: Number(r.second_installment) || 0,
+        previous_installments: Number(r.previous_installments) || 0, other_fees: Number(r.other_fees) || 0,
+        total_due: r.total_due as number | null, total_paid: Number(r.total_paid) || 0,
+        payment_status: r.payment_status as string, archived_year: r.archived_year as string | null,
+      }));
+      return grade ? rows.filter(r => (r.grade_name ?? "").includes(grade)) : rows;
     },
   });
 
@@ -66,10 +73,11 @@ function FinanceInstallments() {
   async function applyTemplate() {
     if (selected.size === 0) return toast.error("اختر طلاب أولاً");
     setSaving(true);
-    const payload: Record<string, number> = {};
-    (Object.keys(tpl) as (keyof typeof tpl)[]).forEach(k => {
-      if (tpl[k] !== "") payload[k] = Number(tpl[k]) || 0;
-    });
+    const payload: { first_installment?: number; second_installment?: number; previous_installments?: number; other_fees?: number } = {};
+    if (tpl.first_installment !== "") payload.first_installment = Number(tpl.first_installment) || 0;
+    if (tpl.second_installment !== "") payload.second_installment = Number(tpl.second_installment) || 0;
+    if (tpl.previous_installments !== "") payload.previous_installments = Number(tpl.previous_installments) || 0;
+    if (tpl.other_fees !== "") payload.other_fees = Number(tpl.other_fees) || 0;
     if (Object.keys(payload).length === 0) { setSaving(false); return toast.error("أدخل قيمة واحدة على الأقل"); }
     const { error } = await supabase.from("students").update(payload).in("id", Array.from(selected));
     setSaving(false);
