@@ -9,18 +9,26 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Upload, FileSpreadsheet, Loader2 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+
 
 export const Route = createFileRoute("/imports/")({
   head: () => ({ meta: [{ title: "استيراد ملفات Excel" }] }),
   component: () => <AppShell><Imports /></AppShell>,
 });
 
-type RowMap = Record<string, unknown>;
+type RowMap = Record<string, any>;
 interface Preview {
   rows: RowMap[];
   toInsert: number;
   toUpdate: number;
   errors: string[];
+  sheetsInfo?: {
+    sheetName: string;
+    gradeName: string | null;
+    className: string | null;
+    rowCount: number;
+  }[];
 }
 
 const COL_ALIASES: Record<string, string[]> = {
@@ -99,6 +107,205 @@ function normalize(row: RowMap): RowMap {
   return out;
 }
 
+function findGradeAndClass(
+  sheetName: string,
+  dbGrades: { id: string; name: string; level: number | null }[],
+  dbClasses: { id: string; name: string; grade_id: string | null }[]
+) {
+  const cleanSheet = sanitizeString(sheetName);
+
+  // Exact matching class
+  let exactClass = dbClasses.find(c => sanitizeString(c.name) === cleanSheet);
+  if (exactClass) {
+    const grade = dbGrades.find(g => g.id === exactClass.grade_id);
+    return {
+      gradeId: exactClass.grade_id,
+      classId: exactClass.id,
+      gradeName: grade?.name ?? null,
+      className: exactClass.name
+    };
+  }
+
+  // Exact matching grade
+  let exactGrade = dbGrades.find(g => sanitizeString(g.name) === cleanSheet);
+  if (exactGrade) {
+    return {
+      gradeId: exactGrade.id,
+      classId: null,
+      gradeName: exactGrade.name,
+      className: null
+    };
+  }
+
+  // Calculate matching scores for all grades
+  let bestGrade: typeof dbGrades[0] | null = null;
+  let highestGradeScore = 0;
+
+  for (const grade of dbGrades) {
+    const cleanGrade = sanitizeString(grade.name);
+    const cleanGradeShort = cleanGrade
+      .replace(/الابتدائي/g, "")
+      .replace(/الاعدادي/g, "")
+      .replace(/الثانوي/g, "")
+      .trim();
+
+    let score = 0;
+
+    // Substring match
+    if (cleanSheet.includes(cleanGrade)) {
+      score += 15;
+    } else if (cleanGrade.includes(cleanSheet)) {
+      score += 10;
+    } else if (cleanSheet.includes(cleanGradeShort)) {
+      score += 8;
+    } else if (cleanGradeShort.includes(cleanSheet)) {
+      score += 6;
+    }
+
+    // Word matches
+    const sheetWords = cleanSheet.split(/[\s\-\/_]+/).filter(w => w.length > 1);
+    const gradeWords = cleanGrade.split(/[\s\-\/_]+/).filter(w => w.length > 1);
+    
+    let wordMatches = 0;
+    for (const sw of sheetWords) {
+      if (gradeWords.includes(sw)) {
+        wordMatches++;
+      }
+    }
+    score += wordMatches * 3;
+
+    // Level map indicators (supporting K1, K2, G1 => G12)
+    if (grade.level !== null) {
+      const levelMap: Record<number, string[]> = {
+        1: ["k1", "كي جي 1", "الاول رياض", "روضة اول"],
+        2: ["k2", "كي جي 2", "الثاني رياض", "روضة ثاني"],
+        3: ["g1", "grade1", "grade 1", "1", "الاول", "اولى"],
+        4: ["g2", "grade2", "grade 2", "2", "الثاني", "تانية"],
+        5: ["g3", "grade3", "grade 3", "3", "الثالث", "تالتة"],
+        6: ["g4", "grade4", "grade 4", "4", "الرابع", "رابعة"],
+        7: ["g5", "grade5", "grade 5", "5", "الخامس", "خامسة"],
+        8: ["g6", "grade6", "grade 6", "6", "السادس", "ستة", "ساتة"],
+        9: ["g7", "grade7", "grade 7", "7", "السابع", "الاول الاعدادي", "اعدادي اول"],
+        10: ["g8", "grade8", "grade 8", "8", "الثامن", "الثاني الاعدادي", "اعدادي ثاني"],
+        11: ["g9", "grade9", "grade 9", "9", "التاسع", "الثالث الاعدادي", "اعدادي ثالث"],
+        12: ["g10", "grade10", "grade 10", "10", "الاول الثانوي", "ثانوي اول"],
+        13: ["g11", "grade11", "grade 11", "11", "الثاني الثانوي", "ثانوي ثاني"],
+        14: ["g12", "grade12", "grade 12", "12", "الثالث الثانوي", "ثانوي ثالث"],
+      };
+      
+      const indicators = levelMap[grade.level] || [];
+      if (indicators.some(ind => cleanSheet.includes(sanitizeString(ind)))) {
+        score += 5;
+      }
+    }
+
+    if (score > highestGradeScore) {
+      highestGradeScore = score;
+      bestGrade = grade;
+    }
+  }
+
+  const matchedGrade = highestGradeScore >= 4 ? bestGrade : null;
+
+  if (matchedGrade) {
+    const classesUnderGrade = dbClasses.filter(c => c.grade_id === matchedGrade.id);
+    let bestClass: typeof dbClasses[0] | null = null;
+    let highestClassScore = 0;
+
+    for (const cls of classesUnderGrade) {
+      const cleanCls = sanitizeString(cls.name);
+      
+      // Support matching letter classes whether they are in English or Arabic in the Excel sheet
+      const clsVariations = [cleanCls];
+      if (cleanCls === "ا") clsVariations.push("a");
+      if (cleanCls === "ب") clsVariations.push("b");
+      if (cleanCls === "ج") clsVariations.push("c");
+      if (cleanCls === "د") clsVariations.push("d");
+      if (cleanCls === "a") clsVariations.push("ا");
+      if (cleanCls === "b") clsVariations.push("ب");
+      if (cleanCls === "c") clsVariations.push("ج");
+      if (cleanCls === "d") clsVariations.push("د");
+
+      let score = 0;
+
+      for (const variant of clsVariations) {
+        if (cleanSheet === variant) {
+          score += 20;
+          break;
+        } else if (cleanSheet.includes(variant)) {
+          if (variant.length === 1) {
+            const regex = new RegExp(`(^|[\\s\\-_/])${variant}($|[\\s\\-_/])`);
+            if (regex.test(cleanSheet)) {
+              score += 10;
+              break;
+            }
+          } else {
+            score += 10;
+            break;
+          }
+        }
+      }
+
+      if (score > highestClassScore) {
+        highestClassScore = score;
+        bestClass = cls;
+      }
+    }
+
+    const matchedClass = highestClassScore >= 5 ? bestClass : null;
+    return {
+      gradeId: matchedGrade.id,
+      classId: matchedClass ? matchedClass.id : null,
+      gradeName: matchedGrade.name,
+      className: matchedClass ? matchedClass.name : null
+    };
+  }
+
+  // Fallback: search classes globally
+  let bestClass: typeof dbClasses[0] | null = null;
+  let highestClassScore = 0;
+  for (const cls of dbClasses) {
+    const cleanCls = sanitizeString(cls.name);
+    if (cleanSheet.includes(cleanCls) && cleanCls.length > 1) {
+      let score = cleanCls.length;
+      if (score > highestClassScore) {
+        highestClassScore = score;
+        bestClass = cls;
+      }
+    }
+  }
+
+  if (bestClass) {
+    const grade = dbGrades.find(g => g.id === bestClass.grade_id);
+    return {
+      gradeId: bestClass.grade_id,
+      classId: bestClass.id,
+      gradeName: grade?.name ?? null,
+      className: bestClass.name
+    };
+  }
+
+  return { gradeId: null, classId: null, gradeName: null, className: null };
+}
+
+function getClassLetter(className: string | null): string {
+  if (!className) return "";
+  const clean = sanitizeString(className);
+  if (clean === "ا" || clean === "a") return "A";
+  if (clean === "ب" || clean === "b") return "B";
+  if (clean === "ج" || clean === "c") return "C";
+  if (clean === "د" || clean === "d") return "D";
+  return clean.replace(/[^a-zA-Z0-9]/g, "").toUpperCase() || "A";
+}
+
+function getGradePrefix(gradeLevel: number | null): string {
+  if (gradeLevel === null) return "ST";
+  if (gradeLevel === 1) return "K1";
+  if (gradeLevel === 2) return "K2";
+  if (gradeLevel >= 3 && gradeLevel <= 14) return `G${gradeLevel - 2}`;
+  return "ST";
+}
+
 import { useAuth } from "@/hooks/use-auth";
 function Imports() {
   const { isStudentAffairs, isAdmin } = useAuth();
@@ -111,6 +318,22 @@ function Imports() {
     foundHeaders: string[];
     maxMatches: number;
   } | null>(null);
+
+  const { data: dbGrades } = useQuery({
+    queryKey: ["grades-all-import"],
+    queryFn: async () => {
+      const { data } = await supabase.from("grades").select("id, name, level").order("level");
+      return data ?? [];
+    },
+  });
+
+  const { data: dbClasses } = useQuery({
+    queryKey: ["classes-all-import"],
+    queryFn: async () => {
+      const { data } = await supabase.from("classes").select("id, name, grade_id");
+      return data ?? [];
+    },
+  });
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     accept: { "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"], "application/vnd.ms-excel": [".xls"] },
@@ -127,25 +350,46 @@ function Imports() {
           return;
         }
 
+        // Fetch all existing student codes and national IDs from the DB to check for uniqueness when generating
+        const { data: allDbStudents } = await supabase.from("students").select("student_code, national_id");
+        const existingCodes = new Set<string>();
+        const nidToCodeMap = new Map<string, string>();
+        (allDbStudents ?? []).forEach(s => {
+          if (s.student_code) {
+            existingCodes.add(s.student_code.trim().toUpperCase());
+          }
+          if (s.national_id && s.student_code) {
+            nidToCodeMap.set(s.national_id.trim(), s.student_code.trim());
+          }
+        });
+        const temporaryCodes = new Set<string>();
+
         // Flatten all aliases for match counting
         const allAliasSet = new Set(
           Object.values(COL_ALIASES).flat().map(a => sanitizeString(a))
         );
 
-        // Find the sheet and the row that contains the maximum number of matches with our aliases
-        let ws = wb.Sheets[wb.SheetNames[0]];
-        let bestSheetName = wb.SheetNames[0];
-        let overallMaxMatches = 0;
-        let bestHeaderIdx = 0;
-        let bestRawRows: unknown[][] = [];
+        const allRows: RowMap[] = [];
+        const processedSheetsInfo: {
+          sheetName: string;
+          gradeName: string | null;
+          className: string | null;
+          rowCount: number;
+        }[] = [];
+
+        const gradesList = dbGrades ?? [];
+        const classesList = dbClasses ?? [];
 
         for (const name of wb.SheetNames) {
           const sheet = wb.Sheets[name];
           const rawRows = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1 });
           if (rawRows.length === 0) continue;
 
-          // Scan the first 20 rows of this sheet
+          // Find the best header row in this sheet
+          let maxMatches = 0;
+          let headerIdx = 0;
           const scanLimit = Math.min(rawRows.length, 20);
+
           for (let i = 0; i < scanLimit; i++) {
             const row = rawRows[i];
             if (!Array.isArray(row)) continue;
@@ -158,59 +402,101 @@ function Imports() {
                 }
               }
             }
-            if (matches > overallMaxMatches) {
-              overallMaxMatches = matches;
-              bestHeaderIdx = i;
-              ws = sheet;
-              bestSheetName = name;
-              bestRawRows = rawRows;
+            if (matches > maxMatches) {
+              maxMatches = matches;
+              headerIdx = i;
             }
+          }
+
+          // If no matches found in this sheet, skip it
+          if (maxMatches < 1) {
+            continue;
+          }
+
+          // Identify grade and class from the sheet name
+          const { gradeId, classId, gradeName, className } = findGradeAndClass(name, gradesList, classesList);
+
+          // Get headers
+          const headers = (rawRows[headerIdx] || []) as unknown[];
+
+          // Get grade level and code prefix
+          const matchedGradeObj = gradesList.find(g => g.id === gradeId);
+          const gradeLevel = matchedGradeObj ? matchedGradeObj.level : null;
+          const codePrefix = `${getGradePrefix(gradeLevel)}${getClassLetter(className)}`;
+
+          // Parse rows
+          let sheetRowCount = 0;
+          for (let i = headerIdx + 1; i < rawRows.length; i++) {
+            const row = rawRows[i];
+            if (!Array.isArray(row) || row.every(cell => cell == null || cell === "")) continue;
+
+            const obj: RowMap = {};
+            for (let j = 0; j < headers.length; j++) {
+              const headerName = String(headers[j] ?? "").trim();
+              if (headerName) {
+                obj[headerName] = row[j];
+              }
+            }
+
+            const normalizedRow = normalize(obj);
+            const cleanName = String(normalizedRow.full_name ?? "").trim();
+            // Skip empty rows or rows that only repeat headers
+            if (cleanName && cleanName !== "اسم الطالب" && cleanName !== "الاسم") {
+              normalizedRow.grade_id = gradeId;
+              normalizedRow.class_id = classId;
+              normalizedRow.sheet_name = name;
+              normalizedRow.matched_grade_name = gradeName;
+              normalizedRow.matched_class_name = className;
+
+              // Generate student code if not provided
+              let studentCode = normalizedRow.student_code ? String(normalizedRow.student_code).trim() : "";
+              if (!studentCode) {
+                const existingDbCode = normalizedRow.national_id ? nidToCodeMap.get(normalizedRow.national_id.trim()) : null;
+                if (existingDbCode) {
+                  normalizedRow.student_code = existingDbCode;
+                } else {
+                  let sequence = 1;
+                  let generated = "";
+                  do {
+                    const seqStr = String(sequence).padStart(3, "0");
+                    generated = `${codePrefix}${seqStr}`;
+                    sequence++;
+                  } while (existingCodes.has(generated) || temporaryCodes.has(generated));
+                  temporaryCodes.add(generated);
+                  normalizedRow.student_code = generated;
+                }
+              } else {
+                normalizedRow.student_code = studentCode;
+              }
+
+              allRows.push(normalizedRow);
+              sheetRowCount++;
+            }
+          }
+
+          if (sheetRowCount > 0) {
+            processedSheetsInfo.push({
+              sheetName: name,
+              gradeName,
+              className,
+              rowCount: sheetRowCount
+            });
           }
         }
 
-        // If no matches found in any sheet, fall back to first sheet's first row
-        if (overallMaxMatches === 0) {
-          const firstSheet = wb.Sheets[wb.SheetNames[0]];
-          bestRawRows = XLSX.utils.sheet_to_json<unknown[]>(firstSheet, { header: 1 });
-          ws = firstSheet;
-          bestSheetName = wb.SheetNames[0];
-          bestHeaderIdx = 0;
-        }
-
-        // Get the header values from the best header row
-        const headers = (bestRawRows[bestHeaderIdx] || []) as unknown[];
-
-        // Convert rows after the header row into objects
-        const rawObjects: RowMap[] = [];
-        for (let i = bestHeaderIdx + 1; i < bestRawRows.length; i++) {
-          const row = bestRawRows[i];
-          if (!Array.isArray(row) || row.every(cell => cell == null || cell === "")) continue;
-
-          const obj: RowMap = {};
-          for (let j = 0; j < headers.length; j++) {
-            const headerName = String(headers[j] ?? "").trim();
-            if (headerName) {
-              obj[headerName] = row[j];
-            }
-          }
-          rawObjects.push(obj);
-        }
-
-        const rows = rawObjects.map(normalize).filter(r => r.full_name || r.student_code || r.national_id);
-        if (rows.length === 0) {
+        if (allRows.length === 0) {
           setErrorDetails({
             sheets: wb.SheetNames,
-            bestSheet: bestSheetName,
-            foundHeaders: headers.map(h => String(h ?? "")),
-            maxMatches: overallMaxMatches,
+            foundHeaders: [],
+            maxMatches: 0,
           });
-          toast.error("لم يتم العثور على أعمدة معروفة. تأكد من أن أسماء الأعمدة في الملف مطابقة للأسماء المطلوبة.");
+          toast.error("لم يتم العثور على أعمدة معروفة في أي صفحة. تأكد من أن أسماء الأعمدة في الملف مطابقة للأسماء المطلوبة.");
           setParsing(false);
           return;
         }
 
-        const codes = rows.map(r => r.student_code).filter(Boolean) as string[];
-        const nids = rows.map(r => r.national_id).filter(Boolean) as string[];
+        const codes = allRows.map(r => r.student_code).filter(Boolean) as string[];
+        const nids = allRows.map(r => r.national_id).filter(Boolean) as string[];
         const existing = new Set<string>();
         if (codes.length) {
           const { data } = await supabase.from("students").select("student_code").in("student_code", codes);
@@ -221,12 +507,13 @@ function Imports() {
           (data ?? []).forEach(d => d.national_id && existing.add(`n:${d.national_id}`));
         }
         let toUpdate = 0, toInsert = 0;
-        rows.forEach(r => {
+        allRows.forEach(r => {
           const key = r.student_code ? `c:${r.student_code}` : r.national_id ? `n:${r.national_id}` : "";
           if (key && existing.has(key)) toUpdate++; else toInsert++;
         });
-        setPreview({ rows, toInsert, toUpdate, errors: [] });
-        toast.success(`تم تحليل ${rows.length} صف`);
+
+        setPreview({ rows: allRows, toInsert, toUpdate, errors: [], sheetsInfo: processedSheetsInfo });
+        toast.success(`تم تحليل ${allRows.length} صف من ${processedSheetsInfo.length} صفحة`);
       } catch (err) {
         toast.error("فشل قراءة الملف"); console.error(err);
       } finally { setParsing(false); }
@@ -259,17 +546,22 @@ function Imports() {
         second_installment: Number(r.second_installment ?? 0) || 0,
         previous_installments: Number(r.previous_installments ?? 0) || 0,
         other_fees: Number(r.other_fees ?? 0) || 0,
+        grade_id: r.grade_id ? String(r.grade_id) : null,
+        class_id: r.class_id ? String(r.class_id) : null,
       };
-      let existing: { id: string } | null = null;
+      let existing: { id: string; student_code: string | null } | null = null;
       if (payload.student_code) {
-        const { data } = await supabase.from("students").select("id").eq("student_code", payload.student_code).maybeSingle();
+        const { data } = await supabase.from("students").select("id, student_code").eq("student_code", payload.student_code).maybeSingle();
         existing = data;
       }
       if (!existing && payload.national_id) {
-        const { data } = await supabase.from("students").select("id").eq("national_id", payload.national_id).maybeSingle();
+        const { data } = await supabase.from("students").select("id, student_code").eq("national_id", payload.national_id).maybeSingle();
         existing = data;
       }
       if (existing) {
+        if (existing.student_code) {
+          payload.student_code = existing.student_code;
+        }
         const { error } = await supabase.from("students").update(payload).eq("id", existing.id);
         if (error) skipped++; else updated++;
       } else {
@@ -361,18 +653,49 @@ function Imports() {
               <Badge className="bg-warning text-warning-foreground">تحديث: {preview.toUpdate}</Badge>
               <Badge variant="outline">إجمالي: {preview.rows.length}</Badge>
             </div>
+            
+            {preview.sheetsInfo && preview.sheetsInfo.length > 0 && (
+              <div className="mb-4 bg-muted/40 p-3 rounded-lg border text-right" dir="rtl">
+                <h3 className="font-semibold text-sm mb-2 text-right">الفصول والصفوف التي تم التعرف عليها:</h3>
+                <div className="flex flex-wrap gap-2 justify-start">
+                  {preview.sheetsInfo.map((info, idx) => (
+                    <Badge key={idx} variant="secondary" className="text-[11px] py-1 px-2.5 bg-background border hover:bg-muted">
+                      📁 {info.sheetName} ← {info.gradeName ? `${info.gradeName}${info.className ? ` (${info.className})` : ""}` : "لم يتم المطابقة"} ({info.rowCount} طالب)
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="border rounded-md overflow-x-auto max-h-64">
               <table className="w-full text-xs">
                 <thead className="bg-muted sticky top-0"><tr>
-                  <th className="px-2 py-2 text-right">الاسم</th><th className="px-2 py-2 text-right">الكود</th>
-                  <th className="px-2 py-2 text-right">قسط 1</th><th className="px-2 py-2 text-right">قسط 2</th>
-                  <th className="px-2 py-2 text-right">سابقة</th><th className="px-2 py-2 text-right">أخرى</th>
+                  <th className="px-2 py-2 text-right">الاسم</th>
+                  <th className="px-2 py-2 text-right">الكود</th>
+                  <th className="px-2 py-2 text-right">الصف / الفصل</th>
+                  <th className="px-2 py-2 text-right">قسط 1</th>
+                  <th className="px-2 py-2 text-right">قسط 2</th>
+                  <th className="px-2 py-2 text-right">سابقة</th>
+                  <th className="px-2 py-2 text-right">أخرى</th>
                 </tr></thead>
                 <tbody>
                   {preview.rows.slice(0, 50).map((r, i) => (
                     <tr key={i} className="border-t">
                       <td className="px-2 py-1.5">{String(r.full_name ?? "—")}</td>
                       <td className="px-2 py-1.5">{String(r.student_code ?? "—")}</td>
+                      <td className="px-2 py-1.5 text-right">
+                        <span className="text-muted-foreground text-[10px] block">
+                          {String(r.sheet_name ?? "")}
+                        </span>
+                        {r.matched_grade_name ? (
+                          <span className="font-semibold text-primary">
+                            {String(r.matched_grade_name)}
+                            {r.matched_class_name ? ` - ${String(r.matched_class_name)}` : ""}
+                          </span>
+                        ) : (
+                          <span className="text-destructive font-medium text-[11px]">لم يتم مطابقة الصف</span>
+                        )}
+                      </td>
                       <td className="px-2 py-1.5">{String(r.first_installment ?? 0)}</td>
                       <td className="px-2 py-1.5">{String(r.second_installment ?? 0)}</td>
                       <td className="px-2 py-1.5">{String(r.previous_installments ?? 0)}</td>

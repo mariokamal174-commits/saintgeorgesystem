@@ -13,29 +13,31 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export const Route = createFileRoute("/admin/")({
-  head: () => ({ meta: [{ title: "إدارة المستخدمين" }] }),
+  head: () => ({ meta: [{ title: "إدارة النظام" }] }),
   component: () => <AppShell><Admin /></AppShell>,
 });
 
 function Admin() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, isStudentAffairs } = useAuth();
   const { data, refetch } = useQuery({
     queryKey: ["all-profiles"],
     queryFn: async () => {
       const { data } = await supabase.from("profiles").select("*").order("created_at", { ascending: false });
       return data ?? [];
     },
+    enabled: isAdmin,
   });
 
   useEffect(() => {
+    if (!isAdmin) return;
     const ch = supabase.channel("profiles-admin")
       .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, () => refetch())
       .subscribe();
     return () => { supabase.removeChannel(ch); };
-  }, [refetch]);
+  }, [refetch, isAdmin]);
 
-  if (!isAdmin) {
-    return <div className="text-center py-12 text-muted-foreground">هذه الصفحة للمسؤولين فقط</div>;
+  if (!isAdmin && !isStudentAffairs) {
+    return <div className="text-center py-12 text-muted-foreground">هذه الصفحة للمسؤولين وشؤون الطلاب فقط</div>;
   }
 
   async function setStatus(id: string, status: "approved" | "rejected") {
@@ -47,49 +49,53 @@ function Admin() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold">إدارة المستخدمين</h1>
-      <Card>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-muted text-muted-foreground">
-              <tr>
-                <th className="px-4 py-3 text-right">الاسم</th>
-                <th className="px-4 py-3 text-right">المستخدم</th>
-                <th className="px-4 py-3 text-right">القسم</th>
-                <th className="px-4 py-3 text-right">الحالة</th>
-                <th className="px-4 py-3 text-right">إجراء</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data?.map(p => (
-                <tr key={p.id} className="border-t">
-                  <td className="px-4 py-3 font-medium">{p.full_name}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{p.username}</td>
-                  <td className="px-4 py-3">{depLabel(p.department)}</td>
-                  <td className="px-4 py-3">
-                    {p.status === "approved" && <Badge className="bg-success text-success-foreground">مفعّل</Badge>}
-                    {p.status === "pending" && <Badge variant="outline">بانتظار</Badge>}
-                    {p.status === "rejected" && <Badge variant="destructive">مرفوض</Badge>}
-                  </td>
-                  <td className="px-4 py-3">
-                    {p.status !== "approved" && <Button size="sm" onClick={() => setStatus(p.id, "approved")}>تفعيل</Button>}
-                    {p.status === "pending" && <Button size="sm" variant="outline" className="mr-2" onClick={() => setStatus(p.id, "rejected")}>رفض</Button>}
-                  </td>
-                </tr>
-              ))}
-              {(data ?? []).length === 0 && <tr><td colSpan={5} className="text-center py-8 text-muted-foreground">لا يوجد مستخدمون</td></tr>}
-            </tbody>
-          </table>
-        </div>
-      </Card>
-      <p className="text-xs text-muted-foreground">ملاحظة: لتعيين أول مستخدم كمسؤول، فعّل حسابه أولاً ثم أضِف دور "admin" له من قاعدة البيانات.</p>
-      <DangerZone />
+      {isAdmin && (
+        <>
+          <h1 className="text-3xl font-bold">إدارة المستخدمين</h1>
+          <Card>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-muted text-muted-foreground">
+                  <tr>
+                    <th className="px-4 py-3 text-right">الاسم</th>
+                    <th className="px-4 py-3 text-right">المستخدم</th>
+                    <th className="px-4 py-3 text-right">القسم</th>
+                    <th className="px-4 py-3 text-right">الحالة</th>
+                    <th className="px-4 py-3 text-right">إجراء</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data?.map(p => (
+                    <tr key={p.id} className="border-t">
+                      <td className="px-4 py-3 font-medium">{p.full_name}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{p.username}</td>
+                      <td className="px-4 py-3">{depLabel(p.department)}</td>
+                      <td className="px-4 py-3">
+                        {p.status === "approved" && <Badge className="bg-success text-success-foreground">مفعّل</Badge>}
+                        {p.status === "pending" && <Badge variant="outline">بانتظار</Badge>}
+                        {p.status === "rejected" && <Badge variant="destructive">مرفوض</Badge>}
+                      </td>
+                      <td className="px-4 py-3">
+                        {p.status !== "approved" && <Button size="sm" onClick={() => setStatus(p.id, "approved")}>تفعيل</Button>}
+                        {p.status === "pending" && <Button size="sm" variant="outline" className="mr-2" onClick={() => setStatus(p.id, "rejected")}>رفض</Button>}
+                      </td>
+                    </tr>
+                  ))}
+                  {(data ?? []).length === 0 && <tr><td colSpan={5} className="text-center py-8 text-muted-foreground">لا يوجد مستخدمون</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+          <p className="text-xs text-muted-foreground">ملاحظة: لتعيين أول مستخدم كمسؤول، فعّل حسابه أولاً ثم أضِف دور "admin" له من قاعدة البيانات.</p>
+        </>
+      )}
+      {(isAdmin || isStudentAffairs) && <DangerZone />}
     </div>
   );
 }
 
 function DangerZone() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, isStudentAffairs } = useAuth();
   const [targetType, setTargetType] = useState<"all" | "stage" | "grade">("all");
   const [selectedStage, setSelectedStage] = useState<"kindergarten" | "primary" | "preparatory" | "secondary">("kindergarten");
   const [selectedGradeId, setSelectedGradeId] = useState<string>("");
@@ -104,11 +110,11 @@ function DangerZone() {
       const { data } = await supabase.from("grades").select("id, name, level").order("level");
       return data ?? [];
     },
-    enabled: isAdmin,
+    enabled: isAdmin || isStudentAffairs,
   });
 
   async function handleWipe() {
-    if (!isAdmin) {
+    if (!isAdmin && !isStudentAffairs) {
       toast.error("غير مصرح لك بإجراء هذه العملية");
       return;
     }

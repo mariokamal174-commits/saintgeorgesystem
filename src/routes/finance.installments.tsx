@@ -47,7 +47,19 @@ function FinanceInstallments() {
         total_due: r.total_due as number | null, total_paid: Number(r.total_paid) || 0,
         payment_status: r.payment_status as string, archived_year: r.archived_year as string | null,
       }));
-      return grade ? rows.filter(r => (r.grade_name ?? "").includes(grade)) : rows;
+      if (grade) {
+        const uniqueGrades = Array.from(new Set(rows.map(r => r.grade_name).filter(Boolean))) as string[];
+        const hasExact = uniqueGrades.includes(grade);
+        return rows.filter(r => {
+          const gn = r.grade_name ?? "";
+          if (hasExact) {
+            return gn === grade;
+          }
+          const regex = new RegExp(`\\b${grade}\\b`, 'i');
+          return regex.test(gn) || gn.includes(grade);
+        });
+      }
+      return rows;
     },
   });
 

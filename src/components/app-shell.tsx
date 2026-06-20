@@ -46,7 +46,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     { to: "/transfers", label: "المحولين والمسحوبين", icon: UserMinus, show: true },
     { to: "/archive", label: "الأرشيف", icon: Archive, show: true },
     { to: "/activity", label: "سجل النشاط", icon: Activity, show: true },
-    { to: "/admin", label: "إدارة المستخدمين", icon: ShieldCheck, show: isAdmin },
+    { to: "/admin", label: isAdmin ? "إدارة المستخدمين" : "مسح البيانات", icon: ShieldCheck, show: isAdmin || isStudentAffairs },
   ];
 
   return (
