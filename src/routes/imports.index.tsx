@@ -72,8 +72,17 @@ function sanitizeString(s: string): string {
     .toString()
     // Remove zero-width spaces, RTL/LTR marks, control chars, and non-breaking spaces
     .replace(/[\u200B-\u200D\uFEFF\u200E\u200F\u202A-\u202E\u00A0]/g, "")
+    // Trim and lowercase
     .trim()
-    .toLowerCase();
+    .toLowerCase()
+    // Normalize Hamzas: أ, إ, آ => ا
+    .replace(/[أإآ]/g, "ا")
+    // Normalize Alef Maksura: ى => ي
+    .replace(/ى/g, "ي")
+    // Normalize Teh Marbuta: ة => ه
+    .replace(/ة/g, "ه")
+    // Strip Arabic Tashkeel (diacritics)
+    .replace(/[\u064B-\u0652]/g, "");
 }
 
 function normalize(row: RowMap): RowMap {
@@ -96,22 +105,24 @@ function Imports() {
   const [parsing, setParsing] = useState(false);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [importing, setImporting] = useState(false);
+  const [errorDetails, setErrorDetails] = useState<{
+    sheets: string[];
+    bestSheet?: string;
+    foundHeaders: string[];
+    maxMatches: number;
+  } | null>(null);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     accept: { "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"], "application/vnd.ms-excel": [".xls"] },
     maxFiles: 1,
     onDrop: async (files) => {
       const file = files[0]; if (!file) return;
-      setParsing(true); setPreview(null);
+      setParsing(true); setPreview(null); setErrorDetails(null);
       try {
         const buf = await file.arrayBuffer();
-        const wb = XLSX.read(buf);
-        const ws = wb.Sheets[wb.SheetNames[0]];
-
-        // Read sheet as a 2D array of rows
-        const rawRows = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1 });
-        if (rawRows.length === 0) {
-          toast.error("الملف فارغ");
+        const wb = XLSX.read(buf, { type: "array" });
+        if (wb.SheetNames.length === 0) {
+          toast.error("الملف لا يحتوي على أي صفحات");
           setParsing(false);
           return;
         }
@@ -121,37 +132,58 @@ function Imports() {
           Object.values(COL_ALIASES).flat().map(a => sanitizeString(a))
         );
 
-        // Find the row index that has the maximum number of matches with our aliases
+        // Find the sheet and the row that contains the maximum number of matches with our aliases
+        let ws = wb.Sheets[wb.SheetNames[0]];
+        let bestSheetName = wb.SheetNames[0];
+        let overallMaxMatches = 0;
         let bestHeaderIdx = 0;
-        let maxMatches = 0;
+        let bestRawRows: unknown[][] = [];
 
-        // Scan the first 20 rows to find the headers
-        const scanLimit = Math.min(rawRows.length, 20);
-        for (let i = 0; i < scanLimit; i++) {
-          const row = rawRows[i];
-          if (!Array.isArray(row)) continue;
-          let matches = 0;
-          for (const cell of row) {
-            if (cell != null) {
-              const cleaned = sanitizeString(String(cell));
-              if (allAliasSet.has(cleaned)) {
-                matches++;
+        for (const name of wb.SheetNames) {
+          const sheet = wb.Sheets[name];
+          const rawRows = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1 });
+          if (rawRows.length === 0) continue;
+
+          // Scan the first 20 rows of this sheet
+          const scanLimit = Math.min(rawRows.length, 20);
+          for (let i = 0; i < scanLimit; i++) {
+            const row = rawRows[i];
+            if (!Array.isArray(row)) continue;
+            let matches = 0;
+            for (const cell of row) {
+              if (cell != null) {
+                const cleaned = sanitizeString(String(cell));
+                if (allAliasSet.has(cleaned)) {
+                  matches++;
+                }
               }
             }
-          }
-          if (matches > maxMatches) {
-            maxMatches = matches;
-            bestHeaderIdx = i;
+            if (matches > overallMaxMatches) {
+              overallMaxMatches = matches;
+              bestHeaderIdx = i;
+              ws = sheet;
+              bestSheetName = name;
+              bestRawRows = rawRows;
+            }
           }
         }
 
+        // If no matches found in any sheet, fall back to first sheet's first row
+        if (overallMaxMatches === 0) {
+          const firstSheet = wb.Sheets[wb.SheetNames[0]];
+          bestRawRows = XLSX.utils.sheet_to_json<unknown[]>(firstSheet, { header: 1 });
+          ws = firstSheet;
+          bestSheetName = wb.SheetNames[0];
+          bestHeaderIdx = 0;
+        }
+
         // Get the header values from the best header row
-        const headers = (rawRows[bestHeaderIdx] || []) as unknown[];
+        const headers = (bestRawRows[bestHeaderIdx] || []) as unknown[];
 
         // Convert rows after the header row into objects
         const rawObjects: RowMap[] = [];
-        for (let i = bestHeaderIdx + 1; i < rawRows.length; i++) {
-          const row = rawRows[i];
+        for (let i = bestHeaderIdx + 1; i < bestRawRows.length; i++) {
+          const row = bestRawRows[i];
           if (!Array.isArray(row) || row.every(cell => cell == null || cell === "")) continue;
 
           const obj: RowMap = {};
@@ -166,6 +198,12 @@ function Imports() {
 
         const rows = rawObjects.map(normalize).filter(r => r.full_name || r.student_code || r.national_id);
         if (rows.length === 0) {
+          setErrorDetails({
+            sheets: wb.SheetNames,
+            bestSheet: bestSheetName,
+            foundHeaders: headers.map(h => String(h ?? "")),
+            maxMatches: overallMaxMatches,
+          });
           toast.error("لم يتم العثور على أعمدة معروفة. تأكد من أن أسماء الأعمدة في الملف مطابقة للأسماء المطلوبة.");
           setParsing(false);
           return;
@@ -265,6 +303,54 @@ function Imports() {
           </div>
         </CardContent>
       </Card>
+
+      {errorDetails && (
+        <Card className="border-destructive bg-destructive/5">
+          <CardHeader>
+            <CardTitle className="text-destructive text-lg font-bold flex items-center gap-2">
+              ⚠️ تفاصيل الخطأ في مطابقة الأعمدة
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm" dir="rtl">
+            <p className="text-muted-foreground">
+              لم نستطع العثور على أعمدة أساسية (مثل: اسم الطالب أو الرقم القومي) في الملف المرفوع. إليك التفاصيل الفنية لمساعدتك في تعديل الملف:
+            </p>
+            <div className="space-y-2 bg-background p-4 rounded-lg border text-right">
+              <div>
+                <strong>الصفحات المتوفرة في الملف:</strong>{" "}
+                <span className="font-mono">{errorDetails.sheets.join(" · ")}</span>
+              </div>
+              {errorDetails.bestSheet && (
+                <div>
+                  <strong>الصفحة التي تم تحليلها:</strong>{" "}
+                  <span className="font-mono text-primary font-bold">{errorDetails.bestSheet}</span>
+                </div>
+              )}
+              <div>
+                <strong>أكبر عدد أعمدة متطابقة في سطر واحد:</strong>{" "}
+                <span className="font-mono font-bold text-destructive">{errorDetails.maxMatches} عمود</span>
+              </div>
+              <div>
+                <strong>عناوين الأعمدة المقروءة في السطر المحدد:</strong>
+                <div className="mt-1 flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-2 bg-muted rounded font-mono text-xs">
+                  {errorDetails.foundHeaders.length > 0 ? (
+                    errorDetails.foundHeaders.map((h, i) => (
+                      <Badge key={i} variant="outline" className="bg-background">
+                        {h || "—"}
+                      </Badge>
+                    ))
+                  ) : (
+                    <span className="text-muted-foreground">لا توجد عناوين أعمدة مقروءة</span>
+                  )}
+                </div>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              💡 نصيحة: تأكد من أن الملف يحتوي على عمود باسم <strong>"اسم الطالب"</strong> أو <strong>"الرقم القومي للطالب"</strong> أو <strong>"الاسم"</strong> في رأس الجدول بشكل واضح.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {preview && (
         <Card>
