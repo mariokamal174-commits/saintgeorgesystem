@@ -80,7 +80,6 @@ function normalize(row: RowMap): RowMap {
 import { useAuth } from "@/hooks/use-auth";
 function Imports() {
   const { isStudentAffairs, isAdmin } = useAuth();
-  if (!(isStudentAffairs || isAdmin)) return <div className="text-center text-muted-foreground py-12">هذه الصفحة متاحة لشؤون الطلاب فقط</div>;
   const [parsing, setParsing] = useState(false);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [importing, setImporting] = useState(false);
@@ -121,6 +120,8 @@ function Imports() {
       } finally { setParsing(false); }
     },
   });
+
+  if (!(isStudentAffairs || isAdmin)) return <div className="text-center text-muted-foreground py-12">هذه الصفحة متاحة لشؤون الطلاب فقط</div>;
 
   async function confirmImport() {
     if (!preview) return;
