@@ -66,12 +66,25 @@ function parseBirthDate(v: unknown): string | null {
   return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
 }
 
+function sanitizeString(s: string): string {
+  if (!s) return "";
+  return s
+    .toString()
+    // Remove zero-width spaces, RTL/LTR marks, control chars, and non-breaking spaces
+    .replace(/[\u200B-\u200D\uFEFF\u200E\u200F\u202A-\u202E\u00A0]/g, "")
+    .trim()
+    .toLowerCase();
+}
+
 function normalize(row: RowMap): RowMap {
   const out: RowMap = {};
   for (const [field, aliases] of Object.entries(COL_ALIASES)) {
     for (const key of Object.keys(row)) {
-      const k = key.toString().trim().toLowerCase();
-      if (aliases.some(a => a.toLowerCase() === k)) { out[field] = row[key]; break; }
+      const sanitizedKey = sanitizeString(key);
+      if (aliases.some(alias => sanitizeString(alias) === sanitizedKey)) {
+        out[field] = row[key];
+        break;
+      }
     }
   }
   return out;
@@ -94,9 +107,70 @@ function Imports() {
         const buf = await file.arrayBuffer();
         const wb = XLSX.read(buf);
         const ws = wb.Sheets[wb.SheetNames[0]];
-        const raw = XLSX.utils.sheet_to_json<RowMap>(ws);
-        const rows = raw.map(normalize).filter(r => r.full_name || r.student_code || r.national_id);
-        if (rows.length === 0) { toast.error("لم يتم العثور على أعمدة معروفة"); setParsing(false); return; }
+
+        // Read sheet as a 2D array of rows
+        const rawRows = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1 });
+        if (rawRows.length === 0) {
+          toast.error("الملف فارغ");
+          setParsing(false);
+          return;
+        }
+
+        // Flatten all aliases for match counting
+        const allAliasSet = new Set(
+          Object.values(COL_ALIASES).flat().map(a => sanitizeString(a))
+        );
+
+        // Find the row index that has the maximum number of matches with our aliases
+        let bestHeaderIdx = 0;
+        let maxMatches = 0;
+
+        // Scan the first 20 rows to find the headers
+        const scanLimit = Math.min(rawRows.length, 20);
+        for (let i = 0; i < scanLimit; i++) {
+          const row = rawRows[i];
+          if (!Array.isArray(row)) continue;
+          let matches = 0;
+          for (const cell of row) {
+            if (cell != null) {
+              const cleaned = sanitizeString(String(cell));
+              if (allAliasSet.has(cleaned)) {
+                matches++;
+              }
+            }
+          }
+          if (matches > maxMatches) {
+            maxMatches = matches;
+            bestHeaderIdx = i;
+          }
+        }
+
+        // Get the header values from the best header row
+        const headers = (rawRows[bestHeaderIdx] || []) as unknown[];
+
+        // Convert rows after the header row into objects
+        const rawObjects: RowMap[] = [];
+        for (let i = bestHeaderIdx + 1; i < rawRows.length; i++) {
+          const row = rawRows[i];
+          if (!Array.isArray(row) || row.every(cell => cell == null || cell === "")) continue;
+
+          const obj: RowMap = {};
+          for (let j = 0; j < headers.length; j++) {
+            const headerName = String(headers[j] ?? "").trim();
+            if (headerName) {
+              obj[headerName] = row[j];
+            }
+          }
+          rawObjects.push(obj);
+        }
+
+        const rows = rawObjects.map(normalize).filter(r => r.full_name || r.student_code || r.national_id);
+        if (rows.length === 0) {
+          toast.error("لم يتم العثور على أعمدة معروفة. تأكد من أن أسماء الأعمدة في الملف مطابقة للأسماء المطلوبة.");
+          setParsing(false);
+          return;
+        }
+
         const codes = rows.map(r => r.student_code).filter(Boolean) as string[];
         const nids = rows.map(r => r.national_id).filter(Boolean) as string[];
         const existing = new Set<string>();

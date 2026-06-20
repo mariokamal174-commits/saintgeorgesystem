@@ -13,11 +13,15 @@ import { ArrowRight } from "lucide-react";
 
 export const Route = createFileRoute("/students/$id/edit")({
   head: () => ({ meta: [{ title: "تعديل الطالب" }] }),
+  validateSearch: (search: Record<string, unknown>): { from?: string } => ({
+    from: search.from as string | undefined,
+  }),
   component: EditStudent,
 });
 
 function EditStudent() {
   const { id } = Route.useParams();
+  const { from } = Route.useSearch();
   const { isStudentAffairs, isAdmin } = useAuth();
   const navigate = useNavigate();
   const [form, setForm] = useState<Record<string, string>>({});
@@ -92,13 +96,17 @@ function EditStudent() {
     const { logActivity } = await import("@/lib/audit");
     await logActivity("update", "student", id, { full_name: payload.full_name });
     toast.success("تم حفظ التعديلات");
-    navigate({ to: "/students/$id", params: { id } });
+    if (from === "print") {
+      navigate({ to: "/students/$id/print", params: { id } });
+    } else {
+      navigate({ to: "/students/$id", params: { id } });
+    }
   }
 
   return (
     <div className="space-y-6 max-w-3xl mx-auto">
       <div className="flex items-center gap-3">
-        <Link to="/students/$id" params={{ id }}><Button variant="ghost" size="sm"><ArrowRight className="h-4 w-4" /></Button></Link>
+        <Link to={from === "print" ? "/students/$id/print" : "/students/$id"} params={{ id }}><Button variant="ghost" size="sm"><ArrowRight className="h-4 w-4" /></Button></Link>
         <h1 className="text-3xl font-bold">تعديل بيانات الطالب</h1>
       </div>
       <form onSubmit={submit}>
@@ -142,7 +150,13 @@ function EditStudent() {
         </Card>
         <div className="flex gap-3 mt-6">
           <Button type="submit" disabled={loading}>حفظ التعديلات</Button>
-          <Button type="button" variant="outline" onClick={() => navigate({ to: "/students/$id", params: { id } })}>إلغاء</Button>
+          <Button type="button" variant="outline" onClick={() => {
+            if (from === "print") {
+              navigate({ to: "/students/$id/print", params: { id } });
+            } else {
+              navigate({ to: "/students/$id", params: { id } });
+            }
+          }}>إلغاء</Button>
         </div>
       </form>
     </div>

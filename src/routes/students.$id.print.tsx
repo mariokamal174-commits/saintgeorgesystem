@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Printer, ArrowRight } from "lucide-react";
+import { Printer, ArrowRight, Pencil } from "lucide-react";
 import { formatAge } from "@/lib/age";
 
 export const Route = createFileRoute("/students/$id/print")({
@@ -76,6 +76,9 @@ function PrintStudent() {
           <h1 className="text-2xl font-bold">طباعة بيانات الطالب</h1>
         </div>
         <div className="flex gap-2">
+          <Link to="/students/$id/edit" params={{ id }} search={{ from: "print" }}>
+            <Button variant="outline"><Pencil className="ml-2 h-4 w-4" />تعديل البيانات</Button>
+          </Link>
           <Button variant="outline" onClick={() => setSelected(new Set(FIELDS.map(f => f.key)))}>اختر الكل</Button>
           <Button variant="outline" onClick={() => setSelected(new Set())}>تفريغ</Button>
           <Button onClick={() => window.print()}><Printer className="ml-2 h-4 w-4" />طباعة / حفظ PDF</Button>
