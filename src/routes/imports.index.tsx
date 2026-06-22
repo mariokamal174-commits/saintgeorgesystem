@@ -343,7 +343,9 @@ function Imports() {
       setParsing(true); setPreview(null); setErrorDetails(null);
       try {
         const buf = await file.arrayBuffer();
-        const wb = XLSX.read(buf, { type: "array" });
+        // Ensure we pass a Uint8Array to SheetJS for consistent parsing in browsers
+        const array = buf instanceof ArrayBuffer ? new Uint8Array(buf) : buf;
+        const wb = XLSX.read(array, { type: "array" });
         if (wb.SheetNames.length === 0) {
           toast.error("الملف لا يحتوي على أي صفحات");
           setParsing(false);
@@ -379,6 +381,10 @@ function Imports() {
 
         const gradesList = dbGrades ?? [];
         const classesList = dbClasses ?? [];
+
+        let overallBestMaxMatches = 0;
+        let overallBestSheetName: string | null = null;
+        let overallFoundHeaders: string[] = [];
 
         for (const name of wb.SheetNames) {
           const sheet = wb.Sheets[name];
@@ -418,6 +424,13 @@ function Imports() {
 
           // Get headers
           const headers = (rawRows[headerIdx] || []) as unknown[];
+
+          // Track best header row across all sheets for better error reporting
+          if (maxMatches > overallBestMaxMatches) {
+            overallBestMaxMatches = maxMatches;
+            overallBestSheetName = name;
+            overallFoundHeaders = headers.map(h => String(h ?? "").trim());
+          }
 
           // Get grade level and code prefix
           const matchedGradeObj = gradesList.find(g => g.id === gradeId);
@@ -487,10 +500,11 @@ function Imports() {
         if (allRows.length === 0) {
           setErrorDetails({
             sheets: wb.SheetNames,
-            foundHeaders: [],
-            maxMatches: 0,
+            bestSheet: overallBestSheetName ?? undefined,
+            foundHeaders: overallFoundHeaders,
+            maxMatches: overallBestMaxMatches,
           });
-          toast.error("لم يتم العثور على أعمدة معروفة في أي صفحة. تأكد من أن أسماء الأعمدة في الملف مطابقة للأسماء المطلوبة.");
+          toast.error("لم يتم العثور على أعمدة معروفة في أي صفحة. تحقق من أسماء الأعمدة أو افتح Console لمزيد من التفاصيل.");
           setParsing(false);
           return;
         }
@@ -515,7 +529,10 @@ function Imports() {
         setPreview({ rows: allRows, toInsert, toUpdate, errors: [], sheetsInfo: processedSheetsInfo });
         toast.success(`تم تحليل ${allRows.length} صف من ${processedSheetsInfo.length} صفحة`);
       } catch (err) {
-        toast.error("فشل قراءة الملف"); console.error(err);
+        const msg = err && typeof err === "object" && "message" in err ? (err as any).message : String(err);
+        toast.error(`فشل قراءة الملف: ${msg}`);
+        console.error("Error parsing Excel file:", err);
+      } finally { setParsing(false); }
       } finally { setParsing(false); }
     },
   });
