@@ -532,7 +532,8 @@ function Imports() {
         const msg = err && typeof err === "object" && "message" in err ? (err as any).message : String(err);
         toast.error(`فشل قراءة الملف: ${msg}`);
         console.error("Error parsing Excel file:", err);
-      } finally { setParsing(false); }
+      }
+      setParsing(false);
     },
   });
 
