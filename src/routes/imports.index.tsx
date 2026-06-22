@@ -533,7 +533,6 @@ function Imports() {
         toast.error(`فشل قراءة الملف: ${msg}`);
         console.error("Error parsing Excel file:", err);
       } finally { setParsing(false); }
-      } finally { setParsing(false); }
     },
   });
 
