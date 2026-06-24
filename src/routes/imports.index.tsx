@@ -609,8 +609,20 @@ function Imports() {
           return;
         }
 
-        const codes = allRows.map(r => String(r.student_code ?? "").trim()).filter(Boolean) as string[];
-        const nids = allRows.map(r => String(r.national_id ?? "").trim()).filter(Boolean) as string[];
+        // Dedupe rows for preview: prefer national_id, then student_code, then name+sheet
+        const dedupMap = new Map<string, RowMap>();
+        for (const r of allRows) {
+          const nid = String(r.national_id ?? "").trim();
+          const code = String(r.student_code ?? "").trim();
+          const nameKey = String(r.full_name ?? "").trim().toLowerCase();
+          const sheetKey = String(r.sheet_name ?? "").trim().toLowerCase();
+          const key = nid || code || `${nameKey}||${sheetKey}`;
+          if (!dedupMap.has(key)) dedupMap.set(key, r);
+        }
+        const dedupedRows = Array.from(dedupMap.values());
+
+        const codes = dedupedRows.map(r => String(r.student_code ?? "").trim()).filter(Boolean) as string[];
+        const nids = dedupedRows.map(r => String(r.national_id ?? "").trim()).filter(Boolean) as string[];
         const existing = new Set<string>();
         if (codes.length) {
           const { data } = await supabase.from("students").select("student_code").in("student_code", codes);
@@ -622,17 +634,17 @@ function Imports() {
         }
         let toUpdate = 0, toInsert = 0;
         const keySet = new Set<string>();
-        allRows.forEach(r => {
+        dedupedRows.forEach(r => {
           const key = r.student_code ? `c:${String(r.student_code).trim()}` : r.national_id ? `n:${String(r.national_id).trim()}` : "";
           if (key) keySet.add(key);
           if (key && existing.has(key)) toUpdate++; else toInsert++;
         });
 
-        const rawTotal = allRows.length;
-        const uniqueStudents = keySet.size || new Set(nids.concat(codes)).size;
+        const rawTotal = allRows.length; // raw rows before dedupe
+        const uniqueStudents = dedupedRows.length;
 
-        setPreview({ rows: allRows, toInsert, toUpdate, errors: [], sheetsInfo: processedSheetsInfo, parserVersion: IMPORT_PARSER_VERSION, rawTotal, uniqueStudents });
-        toast.success(`تم تحليل ${rawTotal} صف من ${processedSheetsInfo.length} صفحة (${uniqueStudents} طلاب مميزين)`);
+        setPreview({ rows: dedupedRows, toInsert, toUpdate, errors: [], sheetsInfo: processedSheetsInfo, parserVersion: IMPORT_PARSER_VERSION, rawTotal, uniqueStudents });
+        toast.success(`تم تحليل ${rawTotal} صف من ${processedSheetsInfo.length} صفحة — عرض ${uniqueStudents} طلاب بعد الديدوبّينج`);
       } catch (err) {
         const msg = err && typeof err === "object" && "message" in err ? (err as any).message : String(err);
         toast.error(`فشل قراءة الملف: ${msg}`);
