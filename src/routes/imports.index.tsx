@@ -553,8 +553,11 @@ function Imports() {
 
             const normalizedRow = normalize(obj);
             const cleanName = String(normalizedRow.full_name ?? "").trim();
-            // Skip empty rows or rows that only repeat headers
-            if (cleanName && cleanName !== "اسم الطالب" && cleanName !== "الاسم") {
+            // Skip empty rows, header rows, or noisy summary rows (e.g. اجمالي, شؤون الطلبة, numeric-only)
+            const nameLower = cleanName.toLowerCase();
+            const isHeaderName = nameLower === "اسم الطالب" || nameLower === "الاسم" || nameLower === "full_name" || nameLower === "name";
+            const isNoisyName = /^(?:0+|اجمالي|اجمالى|مجموع|شؤون الطلبة|شؤون|total|sum|subtotal)$/i.test(cleanName) || /^\d+(?:[\.,]\d+)?$/.test(cleanName);
+            if (cleanName && !isHeaderName && !isNoisyName) {
               normalizedRow.grade_id = gradeId;
               normalizedRow.class_id = classId;
                 normalizedRow.sheet_name = cleanedDisplayName;
