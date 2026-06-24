@@ -29,6 +29,7 @@ interface Preview {
     className: string | null;
     rowCount: number;
   }[];
+  parserVersion?: string;
 }
 
 const COL_ALIASES: Record<string, string[]> = {
@@ -106,6 +107,9 @@ function normalize(row: RowMap): RowMap {
   }
   return out;
 }
+
+// Import parser version (update when changing parsing/matching logic)
+const IMPORT_PARSER_VERSION = "2026-06-24_v2";
 
 function findGradeAndClass(
   sheetName: string,
@@ -500,6 +504,14 @@ function Imports() {
           const gradeLevel = matchedGradeObj ? matchedGradeObj.level : null;
           const codePrefix = `${getGradePrefix(gradeLevel)}${getClassLetter(className)}`;
 
+          // Prepare a cleaned display name for this sheet (remove counts, arrows, noise tokens)
+          const cleanedDisplayName = String(name ?? "")
+            .replace(/\(.*?\)/g, " ")
+            .replace(/[→←\-–—]/g, " ")
+            .replace(/\b(list|mob|id)\b/gi, " ")
+            .replace(/\s+/g, " ")
+            .trim();
+
           // Parse rows
           let sheetRowCount = 0;
           for (let i = headerIdx + 1; i < rawRows.length; i++) {
@@ -520,7 +532,7 @@ function Imports() {
             if (cleanName && cleanName !== "اسم الطالب" && cleanName !== "الاسم") {
               normalizedRow.grade_id = gradeId;
               normalizedRow.class_id = classId;
-              normalizedRow.sheet_name = name;
+                normalizedRow.sheet_name = cleanedDisplayName;
               normalizedRow.matched_grade_name = gradeName;
               normalizedRow.matched_class_name = className;
 
@@ -552,7 +564,7 @@ function Imports() {
 
           if (sheetRowCount > 0) {
             processedSheetsInfo.push({
-              sheetName: name,
+              sheetName: cleanedDisplayName,
               gradeName,
               className,
               rowCount: sheetRowCount
@@ -589,7 +601,7 @@ function Imports() {
           if (key && existing.has(key)) toUpdate++; else toInsert++;
         });
 
-        setPreview({ rows: allRows, toInsert, toUpdate, errors: [], sheetsInfo: processedSheetsInfo });
+        setPreview({ rows: allRows, toInsert, toUpdate, errors: [], sheetsInfo: processedSheetsInfo, parserVersion: IMPORT_PARSER_VERSION });
         toast.success(`تم تحليل ${allRows.length} صف من ${processedSheetsInfo.length} صفحة`);
       } catch (err) {
         const msg = err && typeof err === "object" && "message" in err ? (err as any).message : String(err);
@@ -651,6 +663,7 @@ function Imports() {
     }
     await supabase.from("student_imports").insert({
       rows_total: preview.rows.length, rows_inserted: inserted, rows_updated: updated, rows_skipped: skipped,
+      parser_version: IMPORT_PARSER_VERSION,
     });
     const { logActivity } = await import("@/lib/audit");
     await logActivity("import", "import", null, { inserted, updated, skipped, total: preview.rows.length });
@@ -733,6 +746,9 @@ function Imports() {
               <Badge className="bg-warning text-warning-foreground">تحديث: {preview.toUpdate}</Badge>
               <Badge variant="outline">إجمالي: {preview.rows.length}</Badge>
             </div>
+            {preview.parserVersion && (
+              <div className="text-xs text-muted-foreground mb-3">إصدار محلل الاستيراد: <strong>{preview.parserVersion}</strong></div>
+            )}
             
             {preview.sheetsInfo && preview.sheetsInfo.length > 0 && (
               <div className="mb-4 bg-muted/40 p-3 rounded-lg border text-right" dir="rtl">
