@@ -537,6 +537,11 @@ function Imports() {
             .replace(/\s+/g, " ")
             .trim();
 
+          // Skip sheets that look like exports or contact lists (contain id/mob/phone/list keywords)
+          if (/\b(id|mob|mobile|phone|phone number|contact|contacts|list|قائمة|موبايل|هاتف)\b/i.test(displayNameRaw)) {
+            continue;
+          }
+
           // Parse rows
           let sheetRowCount = 0;
           for (let i = headerIdx + 1; i < rawRows.length; i++) {
@@ -556,7 +561,7 @@ function Imports() {
             // Skip empty rows or header rows, but keep rows that have national_id or student_code
             const nameLower = cleanName.toLowerCase();
             const isHeaderName = nameLower === "اسم الطالب" || nameLower === "الاسم" || nameLower === "full_name" || nameLower === "name";
-            const isNoisyName = /^(?:0+|اجمالي|اجمالى|مجموع|شؤون الطلبة|شؤون|total|sum|subtotal)$/i.test(cleanName) || /^\d+(?:[\.,]\d+)?$/.test(cleanName);
+            const isNoisyName = /^(?:0+|اجمالي|اجمالى|مجموع|شؤون الطلبة|شؤون|جملة|total|sum|subtotal)$/i.test(cleanName) || /^\d+(?:[\.,]\d+)?$/.test(cleanName);
             const hasIdentifier = (normalizedRow.national_id && String(normalizedRow.national_id).trim()) || (normalizedRow.student_code && String(normalizedRow.student_code).trim());
             if ((cleanName && !isHeaderName && !isNoisyName) || hasIdentifier) {
               normalizedRow.grade_id = gradeId;
