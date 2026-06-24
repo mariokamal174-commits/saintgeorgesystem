@@ -117,19 +117,24 @@ function findGradeAndClass(
   dbClasses: { id: string; name: string; grade_id: string | null }[]
 ) {
   // Pre-clean sheet name: remove parenthesized counts, arrows, and noisy tokens
-    let cleanedSheetName = String(sheetName ?? "").trim();
-    // If sheet name contains noisy tokens like 'mob', 'list', or 'id', treat it as noisy and skip
-    const noisyRegex = /\b(mob|list|id)\b/i;
-    if (noisyRegex.test(cleanedSheetName)) {
-      return { gradeId: null, classId: null, gradeName: null, className: null, isNoisy: true };
-    }
-  // Remove anything inside parentheses (e.g. "(51 طالب)")
-  cleanedSheetName = cleanedSheetName.replace(/\(.*?\)/g, " ");
-  // Remove arrows and dashes used in screenshots/exports
-  cleanedSheetName = cleanedSheetName.replace(/[→←\-–—]/g, " ");
-  // Remove common noise words that should not affect grade matching
-  cleanedSheetName = cleanedSheetName.replace(/\b(list|mob|id)\b/gi, " ");
-  cleanedSheetName = cleanedSheetName.replace(/\s+/g, " ").trim();
+    // If the sheet includes an arrow (e.g. "k1 ← KG1"), prefer the right-hand segment (the canonical name)
+      let sheetForMatch = String(sheetName ?? "");
+      // If sheet looks like "(30 طالب) G2 ← KG2" (count + arrow), treat it as noisy and skip entirely
+      if (/\(\s*\d+\s*طالب\s*\).*←|←.*\(\s*\d+\s*طالب\s*\)/i.test(sheetForMatch)) {
+        return { gradeId: null, classId: null, gradeName: null, className: null, isNoisy: true };
+      }
+      if (/←|→|<-|->|–|—/.test(sheetForMatch)) {
+          const parts = sheetForMatch.split(/←|→|<-|->|–|—/);
+          sheetForMatch = parts[parts.length - 1] || sheetForMatch;
+      }
+
+    // Pre-clean sheet name: remove parenthesized counts and noisy tokens
+    let cleanedSheetName = String(sheetForMatch ?? "");
+    // Remove anything inside parentheses (e.g. "(51 طالب)")
+    cleanedSheetName = cleanedSheetName.replace(/\(.*?\)/g, " ");
+    // Remove common noise words that should not affect grade matching
+    cleanedSheetName = cleanedSheetName.replace(/\b(list|mob|id)\b/gi, " ");
+    cleanedSheetName = cleanedSheetName.replace(/\s+/g, " ").trim();
   const cleanSheet = sanitizeString(cleanedSheetName);
 
   // Helper to present KG labels for kindergarten levels
@@ -150,24 +155,38 @@ function findGradeAndClass(
     }
   }
 
-  // If the sheet name contains an explicit grade number (e.g., 1..12, g10, grade11, k1), prefer direct match.
-  const explicitNumMatch = cleanedSheetName.match(/\b(?:g|grade|kg|k)?\s*(\d{1,2})\b/i);
+  // If the sheet name contains an explicit grade number (capture optional prefix like g/grade/kg/k)
+  const explicitNumMatch = cleanedSheetName.match(/\b(?:(g|grade|kg|k)\s*)?(\d{1,2})\b/i);
   if (explicitNumMatch) {
-    const num = Number(explicitNumMatch[1]);
+    const prefix = explicitNumMatch[1] ? String(explicitNumMatch[1]).toLowerCase() : null;
+    const num = Number(explicitNumMatch[2]);
     if (!Number.isNaN(num) && num >= 1 && num <= 12) {
-      const desiredLevel = num <= 2 ? num : num + 2; // map human grade -> stored level
-      const gradeByLevel = dbGrades.find(g => g.level === desiredLevel);
-      if (gradeByLevel) {
-        // Prefer exact class match under this grade if the sheet contains a class letter
-        const classLetterMatch = cleanedSheetName.match(/\b([A-Da-dا-د])\b/);
-        if (classLetterMatch) {
-          const letter = sanitizeString(classLetterMatch[1]);
-          const cls = dbClasses.find(c => c.grade_id === gradeByLevel.id && sanitizeString(c.name) === letter);
-          if (cls) {
-            return { gradeId: gradeByLevel.id, classId: cls.id, gradeName: displayGradeNameFor(gradeByLevel), className: cls.name, isNoisy: false };
+      let desiredLevel: number | null = null;
+      if (prefix && (prefix.startsWith("k"))) {
+        // explicit KG/k prefix
+        desiredLevel = num; // 1 or 2
+      } else if (prefix && (prefix.startsWith("g") || prefix === "grade")) {
+        // explicit G/grade prefix: G1 -> stored level 3
+        desiredLevel = num + 2;
+      } else {
+        // No prefix: fall back to heuristic: 1-2 -> KG, else -> grade num+2
+        desiredLevel = num <= 2 ? num : num + 2;
+      }
+
+      if (desiredLevel !== null) {
+        const gradeByLevel = dbGrades.find(g => g.level === desiredLevel);
+        if (gradeByLevel) {
+          // Prefer exact class match under this grade if the sheet contains a class letter
+          const classLetterMatch = cleanedSheetName.match(/\b([A-Da-dا-د])\b/);
+          if (classLetterMatch) {
+            const letter = sanitizeString(classLetterMatch[1]);
+            const cls = dbClasses.find(c => c.grade_id === gradeByLevel.id && sanitizeString(c.name) === letter);
+            if (cls) {
+              return { gradeId: gradeByLevel.id, classId: cls.id, gradeName: displayGradeNameFor(gradeByLevel), className: cls.name, isNoisy: false };
+            }
           }
+          return { gradeId: gradeByLevel.id, classId: null, gradeName: displayGradeNameFor(gradeByLevel), className: null, isNoisy: false };
         }
-        return { gradeId: gradeByLevel.id, classId: null, gradeName: displayGradeNameFor(gradeByLevel), className: null, isNoisy: false };
       }
     }
   }
@@ -504,10 +523,14 @@ function Imports() {
           const gradeLevel = matchedGradeObj ? matchedGradeObj.level : null;
           const codePrefix = `${getGradePrefix(gradeLevel)}${getClassLetter(className)}`;
 
-          // Prepare a cleaned display name for this sheet (remove counts, arrows, noise tokens)
-          const cleanedDisplayName = String(name ?? "")
+          // Prepare a cleaned display name for this sheet (prefer right-hand side after arrow, remove counts and noise)
+          let displayNameRaw = String(name ?? "");
+          if (/←|→|<-|->|–|—/.test(displayNameRaw)) {
+            const parts = displayNameRaw.split(/←|→|<-|->|–|—/);
+            displayNameRaw = parts[parts.length - 1] || displayNameRaw;
+          }
+          const cleanedDisplayName = displayNameRaw
             .replace(/\(.*?\)/g, " ")
-            .replace(/[→←\-–—]/g, " ")
             .replace(/\b(list|mob|id)\b/gi, " ")
             .replace(/\s+/g, " ")
             .trim();
