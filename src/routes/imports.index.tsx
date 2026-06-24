@@ -136,8 +136,8 @@ function findGradeAndClass(
       gradeId: exactClass.grade_id,
       classId: exactClass.id,
       gradeName: grade?.name ?? null,
-      className: exactClass.name
-        isNoisy: false
+      className: exactClass.name,
+      isNoisy: false
     };
   }
 
@@ -149,7 +149,8 @@ function findGradeAndClass(
       classId: null,
       gradeName: exactGrade.name,
       className: null
-        isNoisy: false
+      ,
+      isNoisy: false
     };
   }
 
@@ -273,8 +274,8 @@ function findGradeAndClass(
       gradeId: matchedGrade.id,
       classId: matchedClass ? matchedClass.id : null,
       gradeName: matchedGrade.name,
-      className: matchedClass ? matchedClass.name : null
-        isNoisy: false
+      className: matchedClass ? matchedClass.name : null,
+      isNoisy: false
     };
   }
 
@@ -298,8 +299,8 @@ function findGradeAndClass(
       gradeId: bestClass.grade_id,
       classId: bestClass.id,
       gradeName: grade?.name ?? null,
-      className: bestClass.name
-        isNoisy: false
+      className: bestClass.name,
+      isNoisy: false
     };
   }
 
