@@ -128,8 +128,15 @@ function findGradeAndClass(
   cleanedSheetName = cleanedSheetName.replace(/\s+/g, " ").trim();
   const cleanSheet = sanitizeString(cleanedSheetName);
 
-  // If the sheet name contains an explicit grade number (e.g., 1..12, g10, grade11), prefer direct match.
-  const explicitNumMatch = cleanedSheetName.match(/\b(?:g|grade|kg)?\s*(\d{1,2})\b/i);
+  // Helper to present KG labels for kindergarten levels
+  const displayGradeNameFor = (g: { id: string; name: string; level: number | null } | null) => {
+    if (!g) return null;
+    if (g.level === 1 || g.level === 2) return `KG${g.level}`;
+    return g.name;
+  };
+
+  // If the sheet name contains an explicit grade number (e.g., 1..12, g10, grade11, k1), prefer direct match.
+  const explicitNumMatch = cleanedSheetName.match(/\b(?:g|grade|kg|k)?\s*(\d{1,2})\b/i);
   if (explicitNumMatch) {
     const num = Number(explicitNumMatch[1]);
     if (!Number.isNaN(num) && num >= 1 && num <= 12) {
@@ -142,10 +149,10 @@ function findGradeAndClass(
           const letter = sanitizeString(classLetterMatch[1]);
           const cls = dbClasses.find(c => c.grade_id === gradeByLevel.id && sanitizeString(c.name) === letter);
           if (cls) {
-            return { gradeId: gradeByLevel.id, classId: cls.id, gradeName: gradeByLevel.name, className: cls.name, isNoisy: false };
+            return { gradeId: gradeByLevel.id, classId: cls.id, gradeName: displayGradeNameFor(gradeByLevel), className: cls.name, isNoisy: false };
           }
         }
-        return { gradeId: gradeByLevel.id, classId: null, gradeName: gradeByLevel.name, className: null, isNoisy: false };
+        return { gradeId: gradeByLevel.id, classId: null, gradeName: displayGradeNameFor(gradeByLevel), className: null, isNoisy: false };
       }
     }
   }
