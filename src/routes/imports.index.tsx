@@ -358,10 +358,10 @@ function Imports() {
         const nidToCodeMap = new Map<string, string>();
         (allDbStudents ?? []).forEach(s => {
           if (s.student_code) {
-            existingCodes.add(s.student_code.trim().toUpperCase());
+            existingCodes.add(String(s.student_code).trim().toUpperCase());
           }
           if (s.national_id && s.student_code) {
-            nidToCodeMap.set(s.national_id.trim(), s.student_code.trim());
+            nidToCodeMap.set(String(s.national_id).trim(), String(s.student_code).trim());
           }
         });
         const temporaryCodes = new Set<string>();
@@ -464,7 +464,7 @@ function Imports() {
               // Generate student code if not provided
               let studentCode = normalizedRow.student_code ? String(normalizedRow.student_code).trim() : "";
               if (!studentCode) {
-                const existingDbCode = normalizedRow.national_id ? nidToCodeMap.get(normalizedRow.national_id.trim()) : null;
+                const existingDbCode = normalizedRow.national_id ? nidToCodeMap.get(String(normalizedRow.national_id).trim()) : null;
                 if (existingDbCode) {
                   normalizedRow.student_code = existingDbCode;
                 } else {
