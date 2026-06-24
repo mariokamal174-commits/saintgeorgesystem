@@ -30,6 +30,8 @@ interface Preview {
     rowCount: number;
   }[];
   parserVersion?: string;
+  rawTotal?: number;
+  uniqueStudents?: number;
 }
 
 const COL_ALIASES: Record<string, string[]> = {
@@ -607,8 +609,8 @@ function Imports() {
           return;
         }
 
-        const codes = allRows.map(r => r.student_code).filter(Boolean) as string[];
-        const nids = allRows.map(r => r.national_id).filter(Boolean) as string[];
+        const codes = allRows.map(r => String(r.student_code ?? "").trim()).filter(Boolean) as string[];
+        const nids = allRows.map(r => String(r.national_id ?? "").trim()).filter(Boolean) as string[];
         const existing = new Set<string>();
         if (codes.length) {
           const { data } = await supabase.from("students").select("student_code").in("student_code", codes);
@@ -619,13 +621,18 @@ function Imports() {
           (data ?? []).forEach(d => d.national_id && existing.add(`n:${d.national_id}`));
         }
         let toUpdate = 0, toInsert = 0;
+        const keySet = new Set<string>();
         allRows.forEach(r => {
-          const key = r.student_code ? `c:${r.student_code}` : r.national_id ? `n:${r.national_id}` : "";
+          const key = r.student_code ? `c:${String(r.student_code).trim()}` : r.national_id ? `n:${String(r.national_id).trim()}` : "";
+          if (key) keySet.add(key);
           if (key && existing.has(key)) toUpdate++; else toInsert++;
         });
 
-        setPreview({ rows: allRows, toInsert, toUpdate, errors: [], sheetsInfo: processedSheetsInfo, parserVersion: IMPORT_PARSER_VERSION });
-        toast.success(`تم تحليل ${allRows.length} صف من ${processedSheetsInfo.length} صفحة`);
+        const rawTotal = allRows.length;
+        const uniqueStudents = keySet.size || new Set(nids.concat(codes)).size;
+
+        setPreview({ rows: allRows, toInsert, toUpdate, errors: [], sheetsInfo: processedSheetsInfo, parserVersion: IMPORT_PARSER_VERSION, rawTotal, uniqueStudents });
+        toast.success(`تم تحليل ${rawTotal} صف من ${processedSheetsInfo.length} صفحة (${uniqueStudents} طلاب مميزين)`);
       } catch (err) {
         const msg = err && typeof err === "object" && "message" in err ? (err as any).message : String(err);
         toast.error(`فشل قراءة الملف: ${msg}`);
@@ -767,7 +774,8 @@ function Imports() {
             <div className="flex gap-3 mb-4 flex-wrap">
               <Badge className="bg-success text-success-foreground">جديد: {preview.toInsert}</Badge>
               <Badge className="bg-warning text-warning-foreground">تحديث: {preview.toUpdate}</Badge>
-              <Badge variant="outline">إجمالي: {preview.rows.length}</Badge>
+              <Badge variant="outline">إجمالي صفوف: {preview.rawTotal ?? preview.rows.length}</Badge>
+              <Badge variant="secondary">طلاب مميزين: {preview.uniqueStudents ?? "—"}</Badge>
             </div>
             {preview.parserVersion && (
               <div className="text-xs text-muted-foreground mb-3">إصدار محلل الاستيراد: <strong>{preview.parserVersion}</strong></div>
