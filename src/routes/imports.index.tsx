@@ -128,6 +128,28 @@ function findGradeAndClass(
   cleanedSheetName = cleanedSheetName.replace(/\s+/g, " ").trim();
   const cleanSheet = sanitizeString(cleanedSheetName);
 
+  // If the sheet name contains an explicit grade number (e.g., 1..12, g10, grade11), prefer direct match.
+  const explicitNumMatch = cleanedSheetName.match(/\b(?:g|grade|kg)?\s*(\d{1,2})\b/i);
+  if (explicitNumMatch) {
+    const num = Number(explicitNumMatch[1]);
+    if (!Number.isNaN(num) && num >= 1 && num <= 12) {
+      const desiredLevel = num <= 2 ? num : num + 2; // map human grade -> stored level
+      const gradeByLevel = dbGrades.find(g => g.level === desiredLevel);
+      if (gradeByLevel) {
+        // Prefer exact class match under this grade if the sheet contains a class letter
+        const classLetterMatch = cleanedSheetName.match(/\b([A-Da-dا-د])\b/);
+        if (classLetterMatch) {
+          const letter = sanitizeString(classLetterMatch[1]);
+          const cls = dbClasses.find(c => c.grade_id === gradeByLevel.id && sanitizeString(c.name) === letter);
+          if (cls) {
+            return { gradeId: gradeByLevel.id, classId: cls.id, gradeName: gradeByLevel.name, className: cls.name, isNoisy: false };
+          }
+        }
+        return { gradeId: gradeByLevel.id, classId: null, gradeName: gradeByLevel.name, className: null, isNoisy: false };
+      }
+    }
+  }
+
   // Exact matching class
   let exactClass = dbClasses.find(c => sanitizeString(c.name) === cleanSheet);
   if (exactClass) {
