@@ -567,6 +567,12 @@ function Imports() {
             const isHeaderName = nameLower === "اسم الطالب" || nameLower === "الاسم" || nameLower === "full_name" || nameLower === "name";
             const isNoisyName = /^(?:0+|اجمالي|اجمالى|مجموع|شؤون الطلبة|شؤون|شؤون الطلاب|الجملة|جملة|جمله|total|sum|subtotal)$/i.test(cleanName) || /^\d+(?:[\.,]\d+)?$/.test(cleanName);
             const hasIdentifier = (normalizedRow.national_id && String(normalizedRow.national_id).trim()) || (normalizedRow.student_code && String(normalizedRow.student_code).trim());
+            // Also drop rows where either the sheet name or the student name clearly indicate 'student affairs' or summaries
+            const sinSheet = sanitizeString(String(cleanedDisplayName || "")).toLowerCase();
+            const sinName = sanitizeString(cleanName).toLowerCase();
+            const isAffairs = /شؤون|شؤون الطلبة|شؤون الطلاب/.test(sinSheet) || /شؤون|شؤون الطلبة|شؤون الطلاب/.test(sinName);
+            if (isAffairs) continue;
+
             if ((cleanName && !isHeaderName && !isNoisyName) || hasIdentifier) {
               normalizedRow.grade_id = gradeId;
               normalizedRow.class_id = classId;
