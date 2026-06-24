@@ -112,7 +112,21 @@ function findGradeAndClass(
   dbGrades: { id: string; name: string; level: number | null }[],
   dbClasses: { id: string; name: string; grade_id: string | null }[]
 ) {
-  const cleanSheet = sanitizeString(sheetName);
+  // Pre-clean sheet name: remove parenthesized counts, arrows, and noisy tokens
+    let cleanedSheetName = String(sheetName ?? "").trim();
+    // If sheet name contains noisy tokens like 'mob', 'list', or 'id', treat it as noisy and skip
+    const noisyRegex = /\b(mob|list|id)\b/i;
+    if (noisyRegex.test(cleanedSheetName)) {
+      return { gradeId: null, classId: null, gradeName: null, className: null, isNoisy: true };
+    }
+  // Remove anything inside parentheses (e.g. "(51 طالب)")
+  cleanedSheetName = cleanedSheetName.replace(/\(.*?\)/g, " ");
+  // Remove arrows and dashes used in screenshots/exports
+  cleanedSheetName = cleanedSheetName.replace(/[→←\-–—]/g, " ");
+  // Remove common noise words that should not affect grade matching
+  cleanedSheetName = cleanedSheetName.replace(/\b(list|mob|id)\b/gi, " ");
+  cleanedSheetName = cleanedSheetName.replace(/\s+/g, " ").trim();
+  const cleanSheet = sanitizeString(cleanedSheetName);
 
   // Exact matching class
   let exactClass = dbClasses.find(c => sanitizeString(c.name) === cleanSheet);
@@ -123,6 +137,7 @@ function findGradeAndClass(
       classId: exactClass.id,
       gradeName: grade?.name ?? null,
       className: exactClass.name
+        isNoisy: false
     };
   }
 
@@ -134,6 +149,7 @@ function findGradeAndClass(
       classId: null,
       gradeName: exactGrade.name,
       className: null
+        isNoisy: false
     };
   }
 
@@ -258,6 +274,7 @@ function findGradeAndClass(
       classId: matchedClass ? matchedClass.id : null,
       gradeName: matchedGrade.name,
       className: matchedClass ? matchedClass.name : null
+        isNoisy: false
     };
   }
 
@@ -282,10 +299,11 @@ function findGradeAndClass(
       classId: bestClass.id,
       gradeName: grade?.name ?? null,
       className: bestClass.name
+        isNoisy: false
     };
   }
 
-  return { gradeId: null, classId: null, gradeName: null, className: null };
+    return { gradeId: null, classId: null, gradeName: null, className: null, isNoisy: false };
 }
 
 function getClassLetter(className: string | null): string {
@@ -420,7 +438,11 @@ function Imports() {
           }
 
           // Identify grade and class from the sheet name
-          const { gradeId, classId, gradeName, className } = findGradeAndClass(name, gradesList, classesList);
+          const { gradeId, classId, gradeName, className, isNoisy } = findGradeAndClass(name, gradesList, classesList);
+          if (isNoisy) {
+            // Skip sheets that are clearly list/mob/id exports rather than real grade/class sheets
+            continue;
+          }
 
           // Get headers
           const headers = (rawRows[headerIdx] || []) as unknown[];
