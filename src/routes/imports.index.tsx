@@ -135,6 +135,17 @@ function findGradeAndClass(
     return g.name;
   };
 
+  // Prefer explicit KG tokens (e.g. "KG1", "kg2", "← KG1") — treat these as authoritative
+  const explicitKgMatch = cleanedSheetName.match(/\bkg\s*([12])\b/i) || cleanedSheetName.match(/kg([12])/i);
+  if (explicitKgMatch) {
+    const kgNum = Number(explicitKgMatch[1]);
+    const desiredLevel = kgNum; // KG1 -> level 1, KG2 -> level 2
+    const gradeByLevel = dbGrades.find(g => g.level === desiredLevel);
+    if (gradeByLevel) {
+      return { gradeId: gradeByLevel.id, classId: null, gradeName: `KG${desiredLevel}`, className: null, isNoisy: false };
+    }
+  }
+
   // If the sheet name contains an explicit grade number (e.g., 1..12, g10, grade11, k1), prefer direct match.
   const explicitNumMatch = cleanedSheetName.match(/\b(?:g|grade|kg|k)?\s*(\d{1,2})\b/i);
   if (explicitNumMatch) {
