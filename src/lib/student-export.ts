@@ -56,6 +56,7 @@ export function exportStudentsToExcel(rows: StudentRow[], filename = "students.x
     "الإجمالي": Number(s.total_due ?? 0),
     "المدفوع": Number(s.total_paid ?? 0),
     "المتبقي": Number(s.remaining_balance ?? 0),
+    "الصف / الفصل": String((s.classes as any)?.name ?? (s.grades as any)?.name ?? ""),
     "حالة السداد": s.payment_status === "paid" ? "مسدد بالكامل" : "غير مسدد",
     "محول للمدرسة": s.is_transferred_in ? "نعم" : "لا",
     "حالة سحب الملف": s.transfer_out_type === "transfer" ? "محول" : s.transfer_out_type === "withdrawal" ? "مسحوب" : "",

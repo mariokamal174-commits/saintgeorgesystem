@@ -77,12 +77,20 @@ function StudentsList() {
   const pages = useMemo(() => Math.max(1, Math.ceil((data?.total ?? 0) / PAGE)), [data]);
 
   async function exportAll() {
-    let qb = supabase.from("students").select("*").order("full_name");
+    let qb = supabase.from("students").select("*, classes(name), grades(name)");
     if (gradeId !== "all") qb = qb.eq("grade_id", gradeId);
     if (archivedFilter === "current") qb = qb.is("archived_year", null);
     else if (archivedFilter === "archived") qb = qb.not("archived_year", "is", null);
     const { data: all } = await qb;
-    exportStudentsToExcel((all ?? []) as never, "students.xlsx");
+    const rows = ((all ?? []) as any[]).slice();
+    rows.sort((a, b) => {
+      const aClass = String(a.classes?.name ?? a.grades?.name ?? "").trim();
+      const bClass = String(b.classes?.name ?? b.grades?.name ?? "").trim();
+      const classCompare = aClass.localeCompare(bClass, "ar");
+      if (classCompare !== 0) return classCompare;
+      return String(a.full_name ?? "").localeCompare(String(b.full_name ?? ""), "ar");
+    });
+    exportStudentsToExcel(rows as never, "students.xlsx");
   }
 
   return (
@@ -148,11 +156,12 @@ function StudentsList() {
                 <th className="px-4 py-3 text-right">المتبقي</th>
                 <th className="px-4 py-3 text-right">الملف</th>
                 <th className="px-4 py-3 text-right">الحالة</th>
+                <th className="px-4 py-3 text-right">طباعة</th>
               </tr>
             </thead>
             <tbody>
-              {isLoading && <tr><td colSpan={7} className="text-center py-8 text-muted-foreground">جاري التحميل...</td></tr>}
-              {!isLoading && data?.rows.length === 0 && <tr><td colSpan={7} className="text-center py-8 text-muted-foreground">لا يوجد طلاب</td></tr>}
+              {isLoading && <tr><td colSpan={8} className="text-center py-8 text-muted-foreground">جاري التحميل...</td></tr>}
+              {!isLoading && data?.rows.length === 0 && <tr><td colSpan={8} className="text-center py-8 text-muted-foreground">لا يوجد طلاب</td></tr>}
               {data?.rows.map((s: any) => (
                 <tr key={s.id} className="border-t hover:bg-muted/50">
                   <td className="px-4 py-3">
@@ -184,6 +193,18 @@ function StudentsList() {
                     {s.payment_status === "paid"
                       ? <Badge className="bg-success text-success-foreground">مسدد بالكامل</Badge>
                       : <Badge variant="destructive">غير مسدد</Badge>}
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <div className="flex flex-wrap gap-2">
+                      <Link to="/students/$id/print" params={{ id: s.id }}>
+                        <Button size="sm" variant="outline"><Printer className="ml-2 h-4 w-4" />طباعة</Button>
+                      </Link>
+                      {s.class_id && (
+                        <Link to="/classes/$id/print" params={{ id: s.class_id }}>
+                          <Button size="sm" variant="outline">فصل</Button>
+                        </Link>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
