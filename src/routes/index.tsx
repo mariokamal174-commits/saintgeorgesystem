@@ -1,8 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AppShell } from "@/components/app-shell";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Users, DollarSign, Receipt, AlertCircle, TrendingUp } from "lucide-react";
@@ -18,6 +19,8 @@ type StudentRow = {
   remaining_balance: number | string | null;
   payment_status: "paid" | "unpaid" | "partial" | null;
   grade_id: string | null;
+  gender?: string | null;
+  religion?: string | null;
   grades?: { name: string; level: number | null } | null;
 };
 
@@ -26,7 +29,7 @@ function Dashboard() {
     queryKey: ["dashboard-stats"],
     queryFn: async () => {
       const [students, receipts] = await Promise.all([
-        supabase.from("students").select("total_due, total_paid, remaining_balance, payment_status, grade_id, grades(name, level)"),
+        supabase.from("students").select("total_due, total_paid, remaining_balance, payment_status, grade_id, grades(name, level), gender, religion"),
         supabase.from("receipts").select("id, status").eq("status", "pending"),
       ]);
       const list = (students.data ?? []) as unknown as StudentRow[];
@@ -52,13 +55,37 @@ function Dashboard() {
 
   const fmt = (n: number) => new Intl.NumberFormat("ar-EG").format(Math.round(n));
 
+  const { isStudentAffairs } = useAuth();
+
+  const studentsByGenderReligion = useMemo(() => {
+    const totals = { boys: 0, girls: 0, muslims: 0, christians: 0 };
+    (data?.rows ?? []).forEach((r) => {
+      const gender = String(r.gender ?? "").trim();
+      const religion = String(r.religion ?? "").trim();
+      if (/^(?:ولد|boy|male)$/i.test(gender)) totals.boys++;
+      if (/^(?:بنت|girl|female)$/i.test(gender)) totals.girls++;
+      if (/^(?:مسلم|muslim)$/i.test(religion)) totals.muslims++;
+      if (/^(?:مسيحي|christian)$/i.test(religion)) totals.christians++;
+    });
+    return totals;
+  }, [data?.rows]);
+
   const cards = [
     { label: "إجمالي الطلاب", value: fmt(data?.totalStudents ?? 0), icon: Users, color: "text-primary", bg: "bg-primary/10" },
-    { label: "إجمالي المستحق", value: fmt(data?.totalDue ?? 0), icon: DollarSign, color: "text-foreground", bg: "bg-muted" },
-    { label: "إجمالي المدفوع", value: fmt(data?.totalPaid ?? 0), icon: TrendingUp, color: "text-success", bg: "bg-success/10" },
-    { label: "المتبقي", value: fmt(data?.remaining ?? 0), icon: AlertCircle, color: "text-warning", bg: "bg-warning/10" },
-    { label: "طلاب لديهم رصيد", value: fmt(data?.outstandingCount ?? 0), icon: AlertCircle, color: "text-destructive", bg: "bg-destructive/10" },
-    { label: "إيصالات بانتظار المراجعة", value: fmt(data?.pendingReceipts ?? 0), icon: Receipt, color: "text-primary", bg: "bg-primary/10" },
+    ...(isStudentAffairs
+      ? [
+          { label: "ولد", value: fmt(studentsByGenderReligion.boys), icon: Users, color: "text-foreground", bg: "bg-muted" },
+          { label: "بنت", value: fmt(studentsByGenderReligion.girls), icon: Users, color: "text-foreground", bg: "bg-muted" },
+          { label: "مسلم", value: fmt(studentsByGenderReligion.muslims), icon: Users, color: "text-foreground", bg: "bg-muted" },
+          { label: "مسيحي", value: fmt(studentsByGenderReligion.christians), icon: Users, color: "text-foreground", bg: "bg-muted" },
+        ]
+      : [
+          { label: "إجمالي المستحق", value: fmt(data?.totalDue ?? 0), icon: DollarSign, color: "text-foreground", bg: "bg-muted" },
+          { label: "إجمالي المدفوع", value: fmt(data?.totalPaid ?? 0), icon: TrendingUp, color: "text-success", bg: "bg-success/10" },
+          { label: "المتبقي", value: fmt(data?.remaining ?? 0), icon: AlertCircle, color: "text-warning", bg: "bg-warning/10" },
+          { label: "طلاب لديهم رصيد", value: fmt(data?.outstandingCount ?? 0), icon: AlertCircle, color: "text-destructive", bg: "bg-destructive/10" },
+        ]),
+    ...(isStudentAffairs ? [] : [{ label: "إيصالات بانتظار المراجعة", value: fmt(data?.pendingReceipts ?? 0), icon: Receipt, color: "text-primary", bg: "bg-primary/10" }]),
   ];
 
   // Per-class breakdown
