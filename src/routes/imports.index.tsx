@@ -97,6 +97,14 @@ function sanitizeString(s: string): string {
     .replace(/[\u064B-\u0652]/g, "");
 }
 
+function normalizeStudentCode(value: unknown): string {
+  return String(value ?? "").trim().toUpperCase();
+}
+
+function normalizeNationalId(value: unknown): string {
+  return String(value ?? "").trim();
+}
+
 function normalize(row: RowMap): RowMap {
   const out: RowMap = {};
   for (const [field, aliases] of Object.entries(COL_ALIASES)) {
@@ -490,10 +498,11 @@ function Imports() {
         const nidToCodeMap = new Map<string, string>();
         (allDbStudents ?? []).forEach(s => {
           if (s.student_code) {
-            existingCodes.add(String(s.student_code).trim().toUpperCase());
-          }
-          if (s.national_id && s.student_code) {
-            nidToCodeMap.set(String(s.national_id).trim(), String(s.student_code).trim());
+            const normalizedCode = normalizeStudentCode(s.student_code);
+            existingCodes.add(normalizedCode);
+            if (s.national_id) {
+              nidToCodeMap.set(normalizeNationalId(s.national_id), normalizedCode);
+            }
           }
         });
         const temporaryCodes = new Set<string>();
@@ -626,14 +635,15 @@ function Imports() {
             if ((cleanName && !isHeaderName && !isNoisyName) || hasIdentifier) {
               normalizedRow.grade_id = gradeId;
               normalizedRow.class_id = classId;
-                normalizedRow.sheet_name = cleanedDisplayName;
+              normalizedRow.sheet_name = cleanedDisplayName;
               normalizedRow.matched_grade_name = gradeName;
               normalizedRow.matched_class_name = className;
 
-              // Generate student code if not provided
-              let studentCode = normalizedRow.student_code ? String(normalizedRow.student_code).trim() : "";
+              // Normalize identifiers and generate missing student code if needed
+              normalizedRow.national_id = normalizeNationalId(normalizedRow.national_id);
+              const studentCode = normalizeStudentCode(normalizedRow.student_code);
               if (!studentCode) {
-                const existingDbCode = normalizedRow.national_id ? nidToCodeMap.get(String(normalizedRow.national_id).trim()) : null;
+                const existingDbCode = normalizedRow.national_id ? nidToCodeMap.get(normalizedRow.national_id) : null;
                 if (existingDbCode) {
                   normalizedRow.student_code = existingDbCode;
                 } else {
@@ -690,21 +700,23 @@ function Imports() {
         }
         const dedupedRows = Array.from(dedupMap.values());
 
-        const codes = dedupedRows.map(r => String(r.student_code ?? "").trim()).filter(Boolean) as string[];
-        const nids = dedupedRows.map(r => String(r.national_id ?? "").trim()).filter(Boolean) as string[];
+        const codes = dedupedRows.map(r => normalizeStudentCode(r.student_code)).filter(Boolean);
+        const nids = dedupedRows.map(r => normalizeNationalId(r.national_id)).filter(Boolean);
         const existing = new Set<string>();
         if (codes.length) {
           const { data } = await supabase.from("students").select("student_code").is("archived_year", null).in("student_code", codes);
-          (data ?? []).forEach(d => d.student_code && existing.add(`c:${d.student_code}`));
+          (data ?? []).forEach(d => d.student_code && existing.add(`c:${normalizeStudentCode(d.student_code)}`));
         }
         if (nids.length) {
           const { data } = await supabase.from("students").select("national_id").is("archived_year", null).in("national_id", nids);
-          (data ?? []).forEach(d => d.national_id && existing.add(`n:${d.national_id}`));
+          (data ?? []).forEach(d => d.national_id && existing.add(`n:${normalizeNationalId(d.national_id)}`));
         }
         let toUpdate = 0, toInsert = 0;
         const keySet = new Set<string>();
         dedupedRows.forEach(r => {
-          const key = r.student_code ? `c:${String(r.student_code).trim()}` : r.national_id ? `n:${String(r.national_id).trim()}` : "";
+          const normalizedCode = normalizeStudentCode(r.student_code);
+          const normalizedNid = normalizeNationalId(r.national_id);
+          const key = normalizedCode ? `c:${normalizedCode}` : normalizedNid ? `n:${normalizedNid}` : "";
           if (key) keySet.add(key);
           if (key && existing.has(key)) toUpdate++; else toInsert++;
         });
@@ -732,8 +744,8 @@ function Imports() {
     for (const r of preview.rows) {
       const payload = {
         full_name: String(r.full_name ?? "").trim() || "بدون اسم",
-        student_code: r.student_code ? String(r.student_code) : null,
-        national_id: r.national_id ? String(r.national_id) : null,
+        student_code: r.student_code ? normalizeStudentCode(r.student_code) : null,
+        national_id: r.national_id ? normalizeNationalId(r.national_id) : null,
         birth_date: parseBirthDate(r.birth_date),
         birth_place: r.birth_place ? String(r.birth_place) : null,
         gender: r.gender ? String(r.gender) : null,

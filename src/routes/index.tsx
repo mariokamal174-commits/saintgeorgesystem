@@ -29,10 +29,11 @@ function Dashboard() {
     queryKey: ["dashboard-stats"],
     queryFn: async () => {
       const [students, receipts] = await Promise.all([
-        supabase.from("students").select("total_due, total_paid, remaining_balance, payment_status, grade_id, grades(name, level), gender, religion"),
-        supabase.from("receipts").select("id, status").eq("status", "pending"),
+        supabase.from("students").select("total_due, total_paid, remaining_balance, payment_status, grade_id, grades(name, level), gender, religion").is("archived_year", null),
+        supabase.from("receipts").select("id, status, students(archived_year)").eq("status", "pending"),
       ]);
       const list = (students.data ?? []) as unknown as StudentRow[];
+      const pendingReceipts = (receipts.data ?? []).filter((receipt: any) => receipt.students?.archived_year === null).length;
       return {
         rows: list,
         totalStudents: list.length,
@@ -40,7 +41,7 @@ function Dashboard() {
         totalPaid: list.reduce((s, x) => s + Number(x.total_paid ?? 0), 0),
         remaining: list.reduce((s, x) => s + Number(x.remaining_balance ?? 0), 0),
         outstandingCount: list.filter(x => x.payment_status !== "paid").length,
-        pendingReceipts: receipts.data?.length ?? 0,
+        pendingReceipts,
       };
     },
   });
