@@ -512,12 +512,14 @@ function Imports() {
 
           // Get headers
           const headers = (rawRows[headerIdx] || []) as unknown[];
+          const forbiddenHeaders = new Set([sanitizeString("الاخوة"), sanitizeString("محولين")]);
+          const filteredHeaders = headers.filter((h) => !forbiddenHeaders.has(sanitizeString(String(h ?? ""))));
 
           // Track best header row across all sheets for better error reporting
           if (maxMatches > overallBestMaxMatches) {
             overallBestMaxMatches = maxMatches;
             overallBestSheetName = name;
-            overallFoundHeaders = headers.map(h => String(h ?? "").trim());
+            overallFoundHeaders = filteredHeaders.map(h => String(h ?? "").trim());
           }
 
           // Get grade level and code prefix
@@ -546,8 +548,6 @@ function Imports() {
             continue;
           }
 
-          const forbiddenHeaders = new Set([sanitizeString("الاخوة"), sanitizeString("محولين")]);
-
           // Parse rows
           let sheetRowCount = 0;
           for (let i = headerIdx + 1; i < rawRows.length; i++) {
@@ -555,9 +555,9 @@ function Imports() {
             if (!Array.isArray(row) || row.every(cell => cell == null || cell === "")) continue;
 
             const obj: RowMap = {};
-            for (let j = 0; j < headers.length; j++) {
-              const headerName = String(headers[j] ?? "").trim();
-              if (headerName && !forbiddenHeaders.has(sanitizeString(headerName))) {
+            for (let j = 0; j < filteredHeaders.length; j++) {
+              const headerName = String(filteredHeaders[j] ?? "").trim();
+              if (headerName) {
                 obj[headerName] = row[j];
               }
             }
