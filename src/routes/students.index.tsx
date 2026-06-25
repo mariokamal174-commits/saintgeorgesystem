@@ -162,7 +162,15 @@ function StudentsList() {
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">{s.student_code ?? "—"}</td>
                   <td className="px-4 py-3 text-muted-foreground">{formatAge(s.birth_date)}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{s.classes?.name ?? s.grades?.name ?? "—"}</td>
+                  <td className="px-4 py-3 text-muted-foreground">
+                    {s.class_id ? (
+                      <Link to="/classes/$id/print" params={{ id: s.class_id }} className="font-medium hover:text-primary">
+                        {s.classes?.name ?? s.grades?.name ?? "—"}
+                      </Link>
+                    ) : (
+                      s.classes?.name ?? s.grades?.name ?? "—"
+                    )}
+                  </td>
                   <td className="px-4 py-3 font-medium">{fmt(Number(s.remaining_balance))}</td>
                   <td className="px-4 py-3">
                     {(() => {

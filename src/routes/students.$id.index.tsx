@@ -125,8 +125,13 @@ function StudentDetail() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Link to="/students/$id/print" params={{ id }}>
-            <Button variant="outline"><Printer className="ml-2 h-4 w-4" />طباعة</Button>
+            <Button variant="outline"><Printer className="ml-2 h-4 w-4" />طباعة الطالب</Button>
           </Link>
+          {s.class_id && (
+            <Link to="/classes/$id/print" params={{ id: s.class_id }}>
+              <Button variant="outline"><Printer className="ml-2 h-4 w-4" />طباعة الفصل</Button>
+            </Link>
+          )}
           {canEditStudent && (
             <Link to="/students/$id/edit" params={{ id }}>
               <Button variant="outline"><Pencil className="ml-2 h-4 w-4" />تعديل</Button>
