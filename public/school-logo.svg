@@ -1,14 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 320">
-  <defs>
-    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#0e3a70" />
-      <stop offset="100%" stop-color="#d62f28" />
-    </linearGradient>
-  </defs>
-  <rect width="320" height="320" rx="48" ry="48" fill="#fff" />
-  <path d="M160 32 L56 96 L56 224 L160 288 L264 224 L264 96 Z" fill="url(#grad)" stroke="#0f2147" stroke-width="8" />
-  <path d="M160 80 L120 128 L160 176 L200 128 Z" fill="#fff" />
-  <path d="M124 160 L124 208 L196 208 L196 160 L160 192 Z" fill="#fff" />
-  <text x="160" y="252" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="700" fill="#0f2147">SAINT GEORGE</text>
-  <text x="160" y="280" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#0f2147">International Schools</text>
+    <defs>
+        <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#0e3a70" />
+            <stop offset="100%" stop-color="#d62f28" />
+        </linearGradient>
+    </defs>
+    <rect width="320" height="320" rx="48" ry="48" fill="#fff" />
+    <path d="M160 32 L56 96 L56 224 L160 288 L264 224 L264 96 Z" fill="url(#grad)" stroke="#0f2147" stroke-width="8" />
+    <path d="M160 80 L120 128 L160 176 L200 128 Z" fill="#fff" />
+    <path d="M124 160 L124 208 L196 208 L196 160 L160 192 Z" fill="#fff" />
+    <text x="160" y="252" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="700" fill="#0f2147">SAINT GEORGE</text>
+    <text x="160" y="280" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#0f2147">International Schools</text>
 </svg>
