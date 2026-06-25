@@ -37,7 +37,15 @@ function ArchivePage() {
     if (!(isAdmin || isStudentAffairs)) return;
     if (!confirm(`سيتم نقل كل الطلاب غير المؤرشفين إلى أرشيف العام الدراسي ${currentYear}. هل أنت متأكد؟`)) return;
     setArchiving(true);
-    const { data, error } = await supabase.from("students").update({ archived_year: currentYear })
+    const { data, error } = await supabase.from("students").update({
+      archived_year: currentYear,
+      first_installment: 0,
+      second_installment: 0,
+      previous_installments: 0,
+      other_fees: 0,
+      total_paid: 0,
+      payment_status: "unpaid",
+    })
       .is("archived_year", null).select("id");
     setArchiving(false);
     if (error) return toast.error(error.message);

@@ -483,8 +483,9 @@ function Imports() {
           return;
         }
 
-        // Fetch all existing student codes and national IDs from the DB to check for uniqueness when generating
-        const { data: allDbStudents } = await supabase.from("students").select("student_code, national_id");
+        // Fetch only current-year existing student codes and national IDs
+        // so import after أرشفة can reuse archived codes for the new year.
+        const { data: allDbStudents } = await supabase.from("students").select("student_code, national_id").is("archived_year", null);
         const existingCodes = new Set<string>();
         const nidToCodeMap = new Map<string, string>();
         (allDbStudents ?? []).forEach(s => {
@@ -750,6 +751,7 @@ function Imports() {
         other_fees: Number(r.other_fees ?? 0) || 0,
         grade_id: r.grade_id ? String(r.grade_id) : null,
         class_id: r.class_id ? String(r.class_id) : null,
+        archived_year: null,
       };
       let existing: { id: string; student_code: string | null } | null = null;
       if (payload.student_code) {
