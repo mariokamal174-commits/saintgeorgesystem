@@ -197,11 +197,11 @@ function StudentsList() {
                   <td className="px-4 py-3 whitespace-nowrap">
                     <div className="flex flex-wrap gap-2">
                       <Link to="/students/$id/print" params={{ id: s.id }}>
-                        <Button size="sm" variant="outline"><Printer className="ml-2 h-4 w-4" />طباعة</Button>
+                        <Button size="sm" variant="outline"><Printer className="ml-2 h-4 w-4" />طباعة الطالب</Button>
                       </Link>
                       {s.class_id && (
                         <Link to="/classes/$id/print" params={{ id: s.class_id }}>
-                          <Button size="sm" variant="outline">فصل</Button>
+                          <Button size="sm" variant="outline"><Printer className="ml-2 h-4 w-4" />طباعة الفصل</Button>
                         </Link>
                       )}
                     </div>
