@@ -693,11 +693,11 @@ function Imports() {
         const nids = dedupedRows.map(r => String(r.national_id ?? "").trim()).filter(Boolean) as string[];
         const existing = new Set<string>();
         if (codes.length) {
-          const { data } = await supabase.from("students").select("student_code").in("student_code", codes);
+          const { data } = await supabase.from("students").select("student_code").is("archived_year", null).in("student_code", codes);
           (data ?? []).forEach(d => d.student_code && existing.add(`c:${d.student_code}`));
         }
         if (nids.length) {
-          const { data } = await supabase.from("students").select("national_id").in("national_id", nids);
+          const { data } = await supabase.from("students").select("national_id").is("archived_year", null).in("national_id", nids);
           (data ?? []).forEach(d => d.national_id && existing.add(`n:${d.national_id}`));
         }
         let toUpdate = 0, toInsert = 0;
@@ -753,11 +753,11 @@ function Imports() {
       };
       let existing: { id: string; student_code: string | null } | null = null;
       if (payload.student_code) {
-        const { data } = await supabase.from("students").select("id, student_code").eq("student_code", payload.student_code).maybeSingle();
+        const { data } = await supabase.from("students").select("id, student_code").is("archived_year", null).eq("student_code", payload.student_code).maybeSingle();
         existing = data;
       }
       if (!existing && payload.national_id) {
-        const { data } = await supabase.from("students").select("id, student_code").eq("national_id", payload.national_id).maybeSingle();
+        const { data } = await supabase.from("students").select("id, student_code").is("archived_year", null).eq("national_id", payload.national_id).maybeSingle();
         existing = data;
       }
       if (existing) {
