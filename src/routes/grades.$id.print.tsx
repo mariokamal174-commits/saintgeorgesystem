@@ -182,8 +182,22 @@ function PrintGrade() {
       <style>{`
         @media print {
           .no-print { display: none !important; }
-          .print-area { border: 1px solid #CBD5E1 !important; box-shadow: none !important; }
-          @page { margin: 1.5cm; }
+          .print-area { 
+            border: 1px solid #CBD5E1 !important; 
+            box-shadow: none !important; 
+            padding: 12px !important;
+            margin: 0 auto !important;
+            max-width: calc(100% - 2cm) !important;
+          }
+          .print-area table { width: 100% !important; min-width: unset !important; border-collapse: collapse !important; }
+          .print-area th, .print-area td { padding: 6px 8px !important; border: 1px solid #E5E7EB !important; }
+          .print-area thead th { background: #F3F4F6 !important; }
+          /* avoid rows being split across pages */
+          .print-area tr { page-break-inside: avoid; break-inside: avoid-column; }
+          @page { margin: 1.5cm; size: A4; }
+        }
+        @media screen {
+          .print-area table { table-layout: auto; }
         }
       `}</style>
     </div>
