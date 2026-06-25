@@ -546,6 +546,8 @@ function Imports() {
             continue;
           }
 
+          const forbiddenHeaders = new Set([sanitizeString("الاخوة"), sanitizeString("محولين")]);
+
           // Parse rows
           let sheetRowCount = 0;
           for (let i = headerIdx + 1; i < rawRows.length; i++) {
@@ -555,7 +557,7 @@ function Imports() {
             const obj: RowMap = {};
             for (let j = 0; j < headers.length; j++) {
               const headerName = String(headers[j] ?? "").trim();
-              if (headerName) {
+              if (headerName && !forbiddenHeaders.has(sanitizeString(headerName))) {
                 obj[headerName] = row[j];
               }
             }
