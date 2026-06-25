@@ -39,8 +39,6 @@ function ArchivePage() {
     setArchiving(true);
     const { data, error } = await supabase.from("students").update({
       archived_year: currentYear,
-      student_code: null,
-      national_id: null,
       first_installment: 0,
       second_installment: 0,
       previous_installments: 0,
