@@ -597,16 +597,16 @@ function Imports() {
 
           // Parse rows
           let sheetRowCount = 0;
+          const headerIndexes = headers
+            .map((header, index) => ({ header: String(header ?? "").trim(), index }))
+            .filter(({ header }) => header && !forbiddenHeaders.has(sanitizeString(header)));
           for (let i = headerIdx + 1; i < rawRows.length; i++) {
             const row = rawRows[i];
             if (!Array.isArray(row) || row.every(cell => cell == null || cell === "")) continue;
 
             const obj: RowMap = {};
-            for (let j = 0; j < filteredHeaders.length; j++) {
-              const headerName = String(filteredHeaders[j] ?? "").trim();
-              if (headerName) {
-                obj[headerName] = row[j];
-              }
+            for (const { header, index } of headerIndexes) {
+              obj[header] = row[index];
             }
 
             const normalizedRow = normalize(obj);
