@@ -84,6 +84,20 @@ function PrintGrade() {
     );
   }, [students]);
 
+  const counts = useMemo(() => {
+    const totals = { total: students.length, boys: 0, girls: 0, muslims: 0, christians: 0 };
+    students.forEach((student) => {
+      const gender = String(student.gender ?? "").trim();
+      const religion = String(student.religion ?? "").trim();
+
+      if (/^(?:ولد|boy|male)$/i.test(gender)) totals.boys++;
+      if (/^(?:بنت|girl|female)$/i.test(gender)) totals.girls++;
+      if (/^(?:مسلم|muslim)$/i.test(religion)) totals.muslims++;
+      if (/^(?:مسيحي|christian)$/i.test(religion)) totals.christians++;
+    });
+    return totals;
+  }, [students]);
+
   if (!grade) return <div className="text-center text-muted-foreground py-12">جاري التحميل...</div>;
 
   const gradeName = String(grade.name ?? "الصف");
@@ -122,11 +136,17 @@ function PrintGrade() {
       </Card>
 
       <div className="print-area bg-white text-black p-8 rounded-[28px] border border-slate-200 shadow-[0_20px_60px_rgba(15,23,42,0.08)]">
-        <div className="mb-6">
-          <div className="text-center mb-4">
-            <img src="/school-logo.png" alt="Saint George International Schools" className="mx-auto mb-4 h-24 w-auto object-contain" />
+        <div className="mb-6 space-y-6">
+          <div className="flex items-start justify-between gap-4">
+            <img src="/school-logo.png" alt="شعار المدرسة" className="h-20 w-auto object-contain" />
+            <div className="text-right space-y-1 text-sm">
+              <div className="font-semibold">مديرية التربية و التعليم</div>
+              <div className="font-semibold">ادارة بني سويف التعليمية</div>
+              <div className="font-semibold">مدرسة سان جورج الدولية</div>
+            </div>
+          </div>
+          <div className="text-center">
             <h2 className="text-2xl font-bold">{gradeName}</h2>
-            <p className="text-sm text-slate-500">مدرسة سانت جورج الدولية</p>
             <p className="text-sm text-slate-500">طباعة بيانات الصف</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
@@ -152,36 +172,68 @@ function PrintGrade() {
         {students.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">لا يوجد طلاب مسجلين في هذا الصف.</div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-sm table-fixed">
-              <thead>
-                <tr>
-                  {visibleFields.map((field) => (
-                    <th key={field.key} className="text-right py-2 px-3 bg-gray-100 border border-gray-200">{field.label}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {students.map((student) => (
-                  <tr key={String(student.id ?? Math.random())} className="border-b last:border-b-0">
-                    {visibleFields.map((field) => {
-                      const raw = field.key === "_age" ? undefined : student[field.key];
-                      const value = field.key === "_age"
-                        ? field.format?.(raw, student)
-                        : field.format
-                          ? field.format(raw, student)
-                          : raw == null || raw === ""
-                            ? "—"
-                            : String(raw);
-                      return (
-                        <td key={field.key} className="py-2 px-3 border border-gray-200 align-top">{value}</td>
-                      );
-                    })}
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-sm table-fixed">
+                <thead>
+                  <tr>
+                    <th className="text-right py-2 px-3 bg-gray-100 border border-gray-200">م</th>
+                    {visibleFields.map((field) => (
+                      <th key={field.key} className="text-right py-2 px-3 bg-gray-100 border border-gray-200">{field.label}</th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {students.map((student, index) => (
+                    <tr key={String(student.id ?? Math.random())} className="border-b last:border-b-0">
+                      <td className="py-2 px-3 border border-gray-200 align-top text-center">{index + 1}</td>
+                      {visibleFields.map((field) => {
+                        const raw = field.key === "_age" ? undefined : student[field.key];
+                        const value = field.key === "_age"
+                          ? field.format?.(raw, student)
+                          : field.format
+                            ? field.format(raw, student)
+                            : raw == null || raw === ""
+                              ? "—"
+                              : String(raw);
+                        return (
+                          <td key={field.key} className="py-2 px-3 border border-gray-200 align-top">{value}</td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="mt-8 space-y-6 text-sm">
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                <div className="text-right">
+                  <div className="text-slate-600">الإجمالي</div>
+                  <div className="mt-1 font-semibold">{counts.total}</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-slate-600">ولد</div>
+                  <div className="mt-1 font-semibold">{counts.boys}</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-slate-600">بنت</div>
+                  <div className="mt-1 font-semibold">{counts.girls}</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-slate-600">مسلم</div>
+                  <div className="mt-1 font-semibold">{counts.muslims}</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-slate-600">مسيحي</div>
+                  <div className="mt-1 font-semibold">{counts.christians}</div>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-8 pt-8 text-sm">
+                <div className="text-right border-t border-slate-400 pt-2">شئون الطلبة</div>
+                <div className="text-left border-t border-slate-400 pt-2">مديرة المدرسة</div>
+              </div>
+            </div>
+          </>
         )}
       </div>
 

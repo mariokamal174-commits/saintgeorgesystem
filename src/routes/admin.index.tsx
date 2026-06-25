@@ -102,6 +102,7 @@ function DangerZone() {
   const [yearType, setYearType] = useState<"current" | "archived" | "specific" | "all">("current");
   const [specificYear, setSpecificYear] = useState<string>("");
   const [confirmText, setConfirmText] = useState<string>("");
+  const [wipePassword, setWipePassword] = useState<string>("");
   const [deleting, setDeleting] = useState(false);
 
   const { data: grades } = useQuery({
@@ -121,6 +122,11 @@ function DangerZone() {
 
     if (confirmText !== "مسح البيانات") {
       toast.error("يرجى كتابة جملة التأكيد بشكل صحيح");
+      return;
+    }
+
+    if (wipePassword !== "SaintGeorge2026") {
+      toast.error("كلمة المرور غير صحيحة");
       return;
     }
 
@@ -201,6 +207,7 @@ function DangerZone() {
       } else {
         toast.success(`تم مسح بيانات: ${targetDesc} - ${yearDesc}`);
         setConfirmText("");
+        setWipePassword("");
         const { logActivity } = await import("@/lib/audit");
         await logActivity("delete", "bulk_wipe", null, { target: targetDesc, year: yearDesc });
       }
@@ -311,11 +318,21 @@ function DangerZone() {
               className="max-w-xs border-destructive/30 focus-visible:ring-destructive"
             />
           </div>
+          <div className="space-y-2">
+            <Label className="text-destructive font-bold">أدخل كلمة المرور لإتمام المسح:</Label>
+            <Input
+              type="password"
+              placeholder="كلمة المرور"
+              value={wipePassword}
+              onChange={e => setWipePassword(e.target.value)}
+              className="max-w-xs border-destructive/30 focus-visible:ring-destructive"
+            />
+          </div>
 
           <Button
             variant="destructive"
             onClick={handleWipe}
-            disabled={confirmText !== "مسح البيانات" || deleting}
+            disabled={confirmText !== "مسح البيانات" || wipePassword !== "SaintGeorge2026" || deleting}
             className="w-full sm:w-auto"
           >
             {deleting ? "جاري المسح..." : "مسح البيانات المحددة نهائيًا"}

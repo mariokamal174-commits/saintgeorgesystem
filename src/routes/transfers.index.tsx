@@ -57,6 +57,7 @@ function TransfersPage() {
                   <th className="px-4 py-3 text-right">الاسم</th>
                   <th className="px-4 py-3 text-right">الكود</th>
                   <th className="px-4 py-3 text-right">النوع</th>
+                  <th className="px-4 py-3 text-right">المدرسة المحول إليها</th>
                   <th className="px-4 py-3 text-right">التاريخ</th>
                   <th className="px-4 py-3 text-right">الهاتف</th>
                   <th></th>
@@ -73,6 +74,7 @@ function TransfersPage() {
                         ? <Badge className="bg-warning text-warning-foreground">محول</Badge>
                         : <Badge variant="destructive">مسحوب</Badge>}
                     </td>
+                    <td className="px-4 py-3 text-muted-foreground">{String(s.transfer_out_school ?? "—")}</td>
                     <td className="px-4 py-3 text-muted-foreground">{String(s.transfer_out_date ?? "—")}</td>
                     <td className="px-4 py-3 text-muted-foreground">{String(s.phone ?? "—")}</td>
                     <td className="px-4 py-3">

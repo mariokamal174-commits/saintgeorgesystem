@@ -396,6 +396,7 @@ export type Database = {
           total_due: number | null
           total_paid: number
           transfer_out_date: string | null
+          transfer_out_school: string | null
           transfer_out_type:
             | Database["public"]["Enums"]["transfer_out_kind"]
             | null
@@ -472,6 +473,7 @@ export type Database = {
           total_due?: number | null
           total_paid?: number
           transfer_out_date?: string | null
+          transfer_out_school?: string | null
           transfer_out_type?:
             | Database["public"]["Enums"]["transfer_out_kind"]
             | null

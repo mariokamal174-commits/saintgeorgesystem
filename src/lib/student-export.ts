@@ -27,6 +27,7 @@ type StudentRow = Record<string, unknown> & {
   payment_status?: string | null;
   is_transferred_in?: boolean | null;
   transfer_out_type?: string | null;
+  transfer_out_school?: string | null;
   transfer_out_date?: string | null;
   archived_year?: string | null;
 };
@@ -59,6 +60,7 @@ export function exportStudentsToExcel(rows: StudentRow[], filename = "students.x
     "الصف / الفصل": String((s.classes as any)?.name ?? (s.grades as any)?.name ?? ""),
     "حالة السداد": s.payment_status === "paid" ? "مسدد بالكامل" : "غير مسدد",
     "محول للمدرسة": s.is_transferred_in ? "نعم" : "لا",
+    "اسم المدرسة المحول إليها": s.transfer_out_school ?? "",
     "حالة سحب الملف": s.transfer_out_type === "transfer" ? "محول" : s.transfer_out_type === "withdrawal" ? "مسحوب" : "",
     "تاريخ سحب الملف": s.transfer_out_date ?? "",
     "السنة المؤرشفة": s.archived_year ?? "",

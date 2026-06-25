@@ -39,6 +39,7 @@ function StudentDetail() {
   const [transferDialogOpen, setTransferDialogOpen] = useState(false);
   const [transferType, setTransferType] = useState<"transfer" | "withdrawal">("transfer");
   const [transferDate, setTransferDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [transferSchool, setTransferSchool] = useState<string>("");
 
   const { data, refetch } = useQuery({
     queryKey: ["student", id],
@@ -63,6 +64,14 @@ function StudentDetail() {
     return () => { supabase.removeChannel(ch); };
   }, [id, refetch]);
 
+  useEffect(() => {
+    if (!data?.student) {
+      setTransferSchool("");
+      return;
+    }
+    setTransferSchool(String(data.student.transfer_out_school ?? ""));
+  }, [data?.student?.transfer_out_school]);
+
   if (!data?.student) return <div className="text-center text-muted-foreground py-12">جاري التحميل...</div>;
   const s = data.student;
   const fmt = (n: number) => new Intl.NumberFormat("ar-EG").format(Math.round(n));
@@ -86,19 +95,25 @@ function StudentDetail() {
   }
 
   async function confirmTransferOut() {
+    if (transferType === "transfer" && !transferSchool.trim()) {
+      toast.error("يرجى كتابة اسم المدرسة المحول إليها");
+      return;
+    }
+
     const { error } = await supabase.from("students").update({
       transfer_out_type: transferType,
       transfer_out_date: transferDate,
+      transfer_out_school: transferType === "transfer" ? transferSchool.trim() : null,
     }).eq("id", id);
     if (error) return toast.error(error.message);
-    await logActivity("update", "student_transfer_out", id, { student_name: s.full_name, type: transferType, date: transferDate });
+    await logActivity("update", "student_transfer_out", id, { student_name: s.full_name, type: transferType, date: transferDate, school: transferType === "transfer" ? transferSchool.trim() : null });
     toast.success(transferType === "transfer" ? "تم تسجيله كمحول" : "تم تسجيله كمسحوب");
     setTransferDialogOpen(false);
     refetch();
   }
 
   async function clearTransferOut() {
-    const { error } = await supabase.from("students").update({ transfer_out_type: null, transfer_out_date: null }).eq("id", id);
+    const { error } = await supabase.from("students").update({ transfer_out_type: null, transfer_out_date: null, transfer_out_school: null }).eq("id", id);
     if (error) return toast.error(error.message);
     await logActivity("update", "student_transfer_out_clear", id, { student_name: s.full_name });
     toast.success("تم إلغاء حالة السحب");
@@ -227,6 +242,9 @@ function StudentDetail() {
           <Row label="محل الميلاد" value={s.birth_place ?? "—"} />
           <Row label="النوع" value={s.gender ?? "—"} />
           <Row label="الديانة" value={s.religion ?? "—"} />
+          {s.transfer_out_type === "transfer" && (
+            <Row label="المدرسة المحول إليها" value={s.transfer_out_school ?? "—"} />
+          )}
           <Row label="اسم الأم" value={s.mother_name ?? "—"} />
           <Row label="الرقم القومي للأم" value={s.mother_national_id ?? "—"} />
           <Row label="الرقم القومي للأب" value={s.father_national_id ?? "—"} />
@@ -321,6 +339,17 @@ function StudentDetail() {
               <Label>تاريخ سحب الملف</Label>
               <Input type="date" value={transferDate} onChange={(e) => setTransferDate(e.target.value)} />
             </div>
+            {transferType === "transfer" && (
+              <div className="space-y-2">
+                <Label>اسم المدرسة المحول إليها</Label>
+                <Input
+                  type="text"
+                  placeholder="اكتب اسم المدرسة..."
+                  value={transferSchool}
+                  onChange={(e) => setTransferSchool(e.target.value)}
+                />
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setTransferDialogOpen(false)}>تخطي</Button>
