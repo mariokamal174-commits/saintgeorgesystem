@@ -1,4 +1,5 @@
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
+import { APP_VERSION } from "@/lib/app-version";
 import { useAuth } from "@/hooks/use-auth";
 import {
   GraduationCap, Users, Receipt, Upload, ShieldCheck,
@@ -59,6 +60,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div>
             <div className="font-bold leading-tight">نظام المدرسة</div>
             <div className="text-xs text-sidebar-foreground/60">الإدارة المتكاملة</div>
+            <div className="text-[11px] text-sidebar-foreground/50">الإصدار {APP_VERSION}</div>
           </div>
         </div>
         <nav className="flex-1 p-3 space-y-1">

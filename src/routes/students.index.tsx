@@ -78,17 +78,15 @@ function StudentsList() {
 
   const currentClass = useMemo(() => {
     const rows = (data?.rows ?? []) as any[];
-    if (rows.length === 0) return null;
-    const firstClassId = rows[0].class_id;
-    if (!firstClassId) return null;
-    const classRow = rows.find((student) => student.class_id === firstClassId);
-    return classRow ? { id: firstClassId, name: classRow.classes?.name ?? classRow.grades?.name ?? "الفصل" } : null;
+    const classIds = Array.from(new Set(rows.map((student) => student.class_id).filter(Boolean)));
+    if (classIds.length !== 1) return null;
+    const classRow = rows.find((student) => student.class_id === classIds[0]);
+    return classRow ? { id: classIds[0], name: classRow.classes?.name ?? classRow.grades?.name ?? "الفصل" } : null;
   }, [data]);
 
   async function exportAll() {
     let qb = supabase.from("students").select("*, classes(name), grades(name)");
     if (gradeId !== "all") qb = qb.eq("grade_id", gradeId);
-    if (classId !== "all") qb = qb.eq("class_id", classId);
     if (archivedFilter === "current") qb = qb.is("archived_year", null);
     else if (archivedFilter === "archived") qb = qb.not("archived_year", "is", null);
     const { data: all } = await qb;
@@ -111,11 +109,6 @@ function StudentsList() {
           <p className="text-muted-foreground mt-1">إجمالي {fmt(data?.total ?? 0)} طالب</p>
         </div>
         <div className="flex gap-2 flex-wrap">
-          {currentClass && (
-            <Link to="/classes/$id/print" params={{ id: currentClass.id }}>
-              <Button variant="outline"><Printer className="ml-2 h-4 w-4" />طباعة الفصل ({currentClass.name})</Button>
-            </Link>
-          )}
           {(isStudentAffairs || isAdmin || isFinance) && (
             <Button variant="outline" onClick={exportAll}><Download className="ml-2 h-4 w-4" />تصدير Excel</Button>
           )}
@@ -127,6 +120,30 @@ function StudentsList() {
           )}
         </div>
       </div>
+
+      <Card className="p-6 bg-secondary/5 border border-secondary/20">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="text-sm text-muted-foreground">طباعة الفصل الكامل</div>
+            <div className="text-xl font-semibold">{currentClass ? currentClass.name : "لا يوجد فصل واحد محدد"}</div>
+            <div className="text-sm text-muted-foreground">
+              {currentClass
+                ? "يمكنك طباعة الفصل الذي يحتوي على جميع الطلاب في الجدول الآن."
+                : "يجب أن يحتوي الجدول على فصل واحد فقط ليظهر زر الطباعة هنا."
+              }
+            </div>
+          </div>
+          <div className="w-full sm:w-auto">
+            {currentClass ? (
+              <Link to="/classes/$id/print" params={{ id: currentClass.id }}>
+                <Button size="lg" className="w-full sm:w-auto"><Printer className="ml-2 h-4 w-4" />طباعة الفصل</Button>
+              </Link>
+            ) : (
+              <Button size="lg" className="w-full sm:w-auto" disabled>لا يوجد فصل للطباعة</Button>
+            )}
+          </div>
+        </div>
+      </Card>
 
       <Card className="p-4">
         <div className="flex flex-col md:flex-row gap-3">
