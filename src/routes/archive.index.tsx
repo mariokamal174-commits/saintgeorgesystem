@@ -18,7 +18,7 @@ export const Route = createFileRoute("/archive/")({
 });
 
 function ArchivePage() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, isStudentAffairs } = useAuth();
   const [years, setYears] = useState<{ year: string; count: number }[]>([]);
   const [archiving, setArchiving] = useState(false);
   const currentYear = schoolYearLabel();
@@ -34,7 +34,7 @@ function ArchivePage() {
   useEffect(() => { load(); }, []);
 
   async function archiveCurrent() {
-    if (!isAdmin) return;
+    if (!(isAdmin || isStudentAffairs)) return;
     if (!confirm(`سيتم نقل كل الطلاب غير المؤرشفين إلى أرشيف العام الدراسي ${currentYear}. هل أنت متأكد؟`)) return;
     setArchiving(true);
     const { data, error } = await supabase.from("students").update({ archived_year: currentYear })
@@ -58,7 +58,7 @@ function ArchivePage() {
           <h1 className="text-3xl font-bold">أرشيف السنوات الدراسية</h1>
           <p className="text-muted-foreground mt-1">العام الدراسي الحالي: {currentYear}</p>
         </div>
-        {isAdmin && (
+        {(isAdmin || isStudentAffairs) && (
           <Button onClick={archiveCurrent} disabled={archiving}>
             <Archive className="ml-2 h-4 w-4" />أرشفة العام الحالي
           </Button>
