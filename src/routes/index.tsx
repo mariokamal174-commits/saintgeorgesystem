@@ -171,12 +171,13 @@ function Dashboard() {
             <CardHeader>
               <CardTitle className="flex flex-col gap-2">
                 <span>{stage}</span>
-                <span className="text-sm text-muted-foreground font-normal">
-                  {fmt(tot.count)} طالب · مسدد {fmt(tot.paid)} · غير مسدد {fmt(tot.unpaid)}
-                </span>
-                {isStudentAffairs && (
+                {isStudentAffairs ? (
                   <span className="text-sm text-muted-foreground font-normal">
                     ولد {fmt(stageCount.boys)} · بنت {fmt(stageCount.girls)} · مسلم {fmt(stageCount.muslims)} · مسيحي {fmt(stageCount.christians)}
+                  </span>
+                ) : (
+                  <span className="text-sm text-muted-foreground font-normal">
+                    {fmt(tot.count)} طالب · مسدد {fmt(tot.paid)} · غير مسدد {fmt(tot.unpaid)}
                   </span>
                 )}
               </CardTitle>
