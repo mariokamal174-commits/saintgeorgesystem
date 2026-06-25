@@ -56,7 +56,13 @@ function PrintGrade() {
 
   useEffect(() => {
     const gradeQuery = supabase.from("grades").select("*").eq("id", id).maybeSingle();
-    const studentsQuery = supabase.from("students").select("*, classes(name), grades(name)").eq("grade_id", id).order("full_name");
+    const studentsQuery = supabase
+      .from("students")
+      .select(
+        "*, classes(name), grades(name), total_due, total_paid, remaining_balance, payment_status, is_transferred_in"
+      )
+      .eq("grade_id", id)
+      .order("full_name");
 
     Promise.all([gradeQuery, studentsQuery]).then(([gradeRes, studentsRes]) => {
       setGrade(gradeRes.data as Record<string, unknown> | null);
@@ -147,7 +153,7 @@ function PrintGrade() {
           <div className="text-center py-12 text-muted-foreground">لا يوجد طلاب مسجلين في هذا الصف.</div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] border-collapse text-sm">
+            <table className="w-full border-collapse text-sm table-fixed">
               <thead>
                 <tr>
                   {visibleFields.map((field) => (
@@ -185,19 +191,20 @@ function PrintGrade() {
           .print-area { 
             border: 1px solid #CBD5E1 !important; 
             box-shadow: none !important; 
-            padding: 12px !important;
+            padding: 8px !important;
             margin: 0 auto !important;
-            max-width: calc(100% - 2cm) !important;
+            max-width: 100% !important;
           }
-          .print-area table { width: 100% !important; min-width: unset !important; border-collapse: collapse !important; }
-          .print-area th, .print-area td { padding: 6px 8px !important; border: 1px solid #E5E7EB !important; }
+          .print-area table { width: 100% !important; min-width: unset !important; border-collapse: collapse !important; table-layout: fixed !important; }
+          .print-area th, .print-area td { padding: 4px 6px !important; border: 1px solid #E5E7EB !important; word-break: break-word !important; }
           .print-area thead th { background: #F3F4F6 !important; }
           /* avoid rows being split across pages */
           .print-area tr { page-break-inside: avoid; break-inside: avoid-column; }
-          @page { margin: 1.5cm; size: A4; }
+          /* Use landscape to fit many columns */
+          @page { margin: 1.2cm; size: A4 landscape; }
         }
         @media screen {
-          .print-area table { table-layout: auto; }
+          .print-area table { table-layout: fixed; }
         }
       `}</style>
     </div>
