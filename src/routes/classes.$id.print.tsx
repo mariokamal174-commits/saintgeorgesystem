@@ -19,9 +19,7 @@ const FIELDS: { key: string; label: string; format?: (value: unknown, student: R
   { key: "birth_date", label: "تاريخ الميلاد" },
   { key: "_age", label: "السن (1/10)", format: (_value, student) => formatAge(student.birth_date as string | null) },
   { key: "phone", label: "الهاتف 1" },
-  { key: "phone2", label: "الهاتف 2" },
   { key: "mother_name", label: "اسم الأم" },
-  { key: "guardian_name", label: "ولي الأمر" },
   { key: "total_due", label: "إجمالي المستحق", format: (value) => formatAmount(value) },
   { key: "total_paid", label: "إجمالي المدفوع", format: (value) => formatAmount(value) },
   { key: "remaining_balance", label: "المتبقي", format: (value) => formatAmount(value) },
@@ -217,7 +215,7 @@ function PrintClass() {
                   <div className="mt-1 font-semibold">{counts.christians}</div>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-8 pt-8 text-sm px-4">
+              <div className="grid grid-cols-2 gap-8 pt-12 text-sm px-4">
                 <div className="text-right border-t border-slate-400 pt-2">شئون الطلبة</div>
                 <div className="text-left border-t border-slate-400 pt-2">مديرة المدرسة</div>
               </div>
