@@ -118,7 +118,7 @@ function PrintGrade() {
       <div className="print-area bg-white text-black p-8 rounded-[28px] border border-slate-200 shadow-[0_20px_60px_rgba(15,23,42,0.08)]">
         <div className="mb-6">
           <div className="text-center mb-4">
-            <img src="/school-logo.svg" alt="Saint George International Schools" className="mx-auto mb-4 h-24 w-auto object-contain" />
+            <img src="/school-logo.png" alt="Saint George International Schools" className="mx-auto mb-4 h-24 w-auto object-contain" />
             <h2 className="text-2xl font-bold">{gradeName}</h2>
             <p className="text-sm text-slate-500">مدرسة سانت جورج الدولية</p>
             <p className="text-sm text-slate-500">طباعة بيانات الصف</p>
