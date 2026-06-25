@@ -22,6 +22,7 @@ function StudentsList() {
   const { isStudentAffairs, isAdmin, isFinance } = useAuth();
   const [q, setQ] = useState("");
   const [gradeId, setGradeId] = useState<string>("all");
+  const [classId, setClassId] = useState<string>("all");
   const [archivedFilter, setArchivedFilter] = useState<"current" | "archived" | "all">("current");
   const [page, setPage] = useState(0);
   const PAGE = 25;
@@ -30,6 +31,14 @@ function StudentsList() {
     queryKey: ["grades-all"],
     queryFn: async () => {
       const { data } = await supabase.from("grades").select("id, name, level").order("level");
+      return data ?? [];
+    },
+  });
+
+  const { data: classes } = useQuery({
+    queryKey: ["classes-all"],
+    queryFn: async () => {
+      const { data } = await supabase.from("classes").select("id, name, grade_id").order("name");
       return data ?? [];
     },
   });
@@ -49,12 +58,13 @@ function StudentsList() {
   }, [grades]);
 
   const { data, refetch, isLoading } = useQuery({
-    queryKey: ["students", q, page, gradeId, archivedFilter],
+    queryKey: ["students", q, page, gradeId, classId, archivedFilter],
     queryFn: async () => {
       let qb = supabase.from("students").select("*, classes(name), grades(name), delivery_tracking(item, delivered)", { count: "exact" })
         .order("created_at", { ascending: false })
         .range(page * PAGE, page * PAGE + PAGE - 1);
       if (gradeId !== "all") qb = qb.eq("grade_id", gradeId);
+      if (classId !== "all") qb = qb.eq("class_id", classId);
       if (archivedFilter === "current") qb = qb.is("archived_year", null);
       else if (archivedFilter === "archived") qb = qb.not("archived_year", "is", null);
       if (q.trim()) {
@@ -87,6 +97,7 @@ function StudentsList() {
   async function exportAll() {
     let qb = supabase.from("students").select("*, classes(name), grades(name)");
     if (gradeId !== "all") qb = qb.eq("grade_id", gradeId);
+    if (classId !== "all") qb = qb.eq("class_id", classId);
     if (archivedFilter === "current") qb = qb.is("archived_year", null);
     else if (archivedFilter === "archived") qb = qb.not("archived_year", "is", null);
     const { data: all } = await qb;
@@ -132,7 +143,7 @@ function StudentsList() {
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input value={q} onChange={(e) => { setQ(e.target.value); setPage(0); }} placeholder="ابحث بالاسم أو الكود أو الرقم القومي..." className="pr-10" />
           </div>
-          <Select value={gradeId} onValueChange={(v) => { setGradeId(v); setPage(0); }}>
+          <Select value={gradeId} onValueChange={(v) => { setGradeId(v); setClassId("all"); setPage(0); }}>
             <SelectTrigger className="md:w-64"><SelectValue placeholder="كل الصفوف" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">كل الصفوف</SelectItem>
@@ -143,6 +154,15 @@ function StudentsList() {
                     {items.map(g => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}
                   </SelectGroup>
                 )
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={classId} onValueChange={(v) => { setClassId(v); setPage(0); }}>
+            <SelectTrigger className="md:w-64"><SelectValue placeholder="كل الفصول" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">كل الفصول</SelectItem>
+              {(classes ?? []).filter((c) => gradeId === "all" || c.grade_id === gradeId).map((cls) => (
+                <SelectItem key={cls.id} value={cls.id}>{cls.name}</SelectItem>
               ))}
             </SelectContent>
           </Select>
