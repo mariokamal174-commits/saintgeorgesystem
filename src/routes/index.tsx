@@ -55,6 +55,13 @@ function Dashboard() {
 
   const fmt = (n: number) => new Intl.NumberFormat("ar-EG").format(Math.round(n));
 
+  function stageOf(level: number) {
+    if (level <= 2) return "رياض الأطفال";
+    if (level <= 8) return "المرحلة الابتدائية";
+    if (level <= 11) return "المرحلة الإعدادية";
+    return "المرحلة الثانوية";
+  }
+
   const { isStudentAffairs } = useAuth();
 
   const studentsByGenderReligion = useMemo(() => {
@@ -66,6 +73,22 @@ function Dashboard() {
       if (/^(?:بنت|girl|female)$/i.test(gender)) totals.girls++;
       if (/^(?:مسلم|muslim)$/i.test(religion)) totals.muslims++;
       if (/^(?:مسيحي|christian)$/i.test(religion)) totals.christians++;
+    });
+    return totals;
+  }, [data?.rows]);
+
+  const stageTotals = useMemo(() => {
+    const totals = new Map<string, { boys: number; girls: number; muslims: number; christians: number }>();
+    (data?.rows ?? []).forEach((r) => {
+      const stage = stageOf(Number(r.grades?.level ?? 999));
+      const current = totals.get(stage) ?? { boys: 0, girls: 0, muslims: 0, christians: 0 };
+      const gender = String(r.gender ?? "").trim();
+      const religion = String(r.religion ?? "").trim();
+      if (/^(?:ولد|boy|male)$/i.test(gender)) current.boys++;
+      if (/^(?:بنت|girl|female)$/i.test(gender)) current.girls++;
+      if (/^(?:مسلم|muslim)$/i.test(religion)) current.muslims++;
+      if (/^(?:مسيحي|christian)$/i.test(religion)) current.christians++;
+      totals.set(stage, current);
     });
     return totals;
   }, [data?.rows]);
@@ -142,14 +165,20 @@ function Dashboard() {
           count: a.count + r.count, paid: a.paid + r.paid, unpaid: a.unpaid + r.unpaid,
           totalDue: a.totalDue + r.totalDue, totalPaid: a.totalPaid + r.totalPaid, remaining: a.remaining + r.remaining,
         }), { count: 0, paid: 0, unpaid: 0, totalDue: 0, totalPaid: 0, remaining: 0 });
+        const stageCount = stageTotals.get(stage) ?? { boys: 0, girls: 0, muslims: 0, christians: 0 };
         return (
           <Card key={stage} style={{ boxShadow: "var(--shadow-card)" }}>
             <CardHeader>
-              <CardTitle className="flex items-center justify-between flex-wrap gap-2">
+              <CardTitle className="flex flex-col gap-2">
                 <span>{stage}</span>
                 <span className="text-sm text-muted-foreground font-normal">
                   {fmt(tot.count)} طالب · مسدد {fmt(tot.paid)} · غير مسدد {fmt(tot.unpaid)}
                 </span>
+                {isStudentAffairs && (
+                  <span className="text-sm text-muted-foreground font-normal">
+                    ولد {fmt(stageCount.boys)} · بنت {fmt(stageCount.girls)} · مسلم {fmt(stageCount.muslims)} · مسيحي {fmt(stageCount.christians)}
+                  </span>
+                )}
               </CardTitle>
             </CardHeader>
             <CardContent>
