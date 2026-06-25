@@ -1,11 +1,11 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { AppShell } from "@/components/app-shell";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Printer, ArrowRight } from "lucide-react";
+import { Printer } from "lucide-react";
 import { formatAge } from "@/lib/age";
 
 export const Route = createFileRoute("/grades/$id/print")({
@@ -92,12 +92,9 @@ function PrintGrade() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3 no-print">
-        <div className="flex items-center gap-3">
-          <Link to="/students"><Button variant="ghost" size="sm"><ArrowRight className="h-4 w-4" /></Button></Link>
-          <div>
-            <h1 className="text-2xl font-bold">طباعة بيانات الصف</h1>
-            <p className="text-sm text-muted-foreground">{gradeName}</p>
-          </div>
+        <div>
+          <h1 className="text-2xl font-bold">طباعة بيانات الصف</h1>
+          <p className="text-sm text-muted-foreground">{gradeName}</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => setSelected(new Set(FIELDS.map((f) => f.key)))}>اختر الكل</Button>
@@ -118,11 +115,13 @@ function PrintGrade() {
         </CardContent>
       </Card>
 
-      <div className="print-area bg-white text-black p-8 rounded-lg border">
+      <div className="print-area bg-white text-black p-8 rounded-[28px] border border-slate-200 shadow-[0_20px_60px_rgba(15,23,42,0.08)]">
         <div className="mb-6">
           <div className="text-center mb-4">
+            <img src="/school-logo.svg" alt="Saint George International Schools" className="mx-auto mb-4 h-24 w-auto object-contain" />
             <h2 className="text-2xl font-bold">{gradeName}</h2>
-            <p className="text-sm">طباعة بيانات الصف</p>
+            <p className="text-sm text-slate-500">مدرسة سانت جورج الدولية</p>
+            <p className="text-sm text-slate-500">طباعة بيانات الصف</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
             <div>
@@ -183,7 +182,7 @@ function PrintGrade() {
       <style>{`
         @media print {
           .no-print { display: none !important; }
-          .print-area { border: none !important; }
+          .print-area { border: 1px solid #CBD5E1 !important; box-shadow: none !important; }
           @page { margin: 1.5cm; }
         }
       `}</style>
