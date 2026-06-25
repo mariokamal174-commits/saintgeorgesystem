@@ -76,6 +76,14 @@ function StudentsList() {
   const fmt = (n: number) => new Intl.NumberFormat("ar-EG").format(Math.round(n));
   const pages = useMemo(() => Math.max(1, Math.ceil((data?.total ?? 0) / PAGE)), [data]);
 
+  const currentClass = useMemo(() => {
+    const rows = (data?.rows ?? []) as any[];
+    const classIds = Array.from(new Set(rows.map((student) => student.class_id).filter(Boolean)));
+    if (classIds.length !== 1) return null;
+    const classRow = rows.find((student) => student.class_id === classIds[0]);
+    return classRow ? { id: classIds[0], name: classRow.classes?.name ?? classRow.grades?.name ?? "فصل" } : null;
+  }, [data]);
+
   async function exportAll() {
     let qb = supabase.from("students").select("*, classes(name), grades(name)");
     if (gradeId !== "all") qb = qb.eq("grade_id", gradeId);
@@ -101,6 +109,11 @@ function StudentsList() {
           <p className="text-muted-foreground mt-1">إجمالي {fmt(data?.total ?? 0)} طالب</p>
         </div>
         <div className="flex gap-2 flex-wrap">
+          {currentClass && (
+            <Link to="/classes/$id/print" params={{ id: currentClass.id }}>
+              <Button variant="outline"><Printer className="ml-2 h-4 w-4" />طباعة الفصل ({currentClass.name})</Button>
+            </Link>
+          )}
           {(isStudentAffairs || isAdmin || isFinance) && (
             <Button variant="outline" onClick={exportAll}><Download className="ml-2 h-4 w-4" />تصدير Excel</Button>
           )}
