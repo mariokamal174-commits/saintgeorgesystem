@@ -543,8 +543,8 @@ function Imports() {
           if (/\b(id|mob|mobile|phone|phone number|contact|contacts|list|قائمة|موبايل|هاتف)\b/i.test(displayNameRaw)) {
             continue;
           }
-          // Also skip sheets that mention student affairs or summary words
-          if (/شؤون|شؤون الطلبة|شؤون الطلاب|الجملة|جملة|جمله/i.test(displayNameRaw) || /شؤون|شؤون الطلبة|شؤون الطلاب|الجملة|جملة|جمله/i.test(cleanedDisplayName)) {
+          // Also skip sheets that mention student affairs or summary words, or sheets for siblings/transfer lists
+          if (/شؤون|شؤون الطلبة|شؤون الطلاب|الجملة|جملة|جمله|أخوة|الاخوة|محولين|محول/i.test(displayNameRaw) || /شؤون|شؤون الطلبة|شؤون الطلاب|الجملة|جملة|جمله|أخوة|الاخوة|محولين|محول/i.test(cleanedDisplayName)) {
             continue;
           }
 
