@@ -138,6 +138,21 @@ function updatePreviewRows(preview: Preview, rowIndex: number): Preview {
   };
 }
 
+function removePreviewSheet(preview: Preview, sheetName: string): Preview {
+  const existingKeys = new Set<string>(preview.existingKeys ?? []);
+  const rows = preview.rows.filter(r => String(r.sheet_name ?? "").trim() !== sheetName.trim());
+  const counts = computePreviewCounts(rows, existingKeys);
+  const sheetsInfo = preview.sheetsInfo?.filter(info => info.sheetName !== sheetName);
+  return {
+    ...preview,
+    rows,
+    toInsert: counts.toInsert,
+    toUpdate: counts.toUpdate,
+    uniqueStudents: counts.uniqueStudents,
+    sheetsInfo,
+  };
+}
+
 // Import parser version (update when changing parsing/matching logic)
 const IMPORT_PARSER_VERSION = "2026-06-24_v2";
 
@@ -851,8 +866,16 @@ function Imports() {
                 <h3 className="font-semibold text-sm mb-2 text-right">الفصول والصفوف التي تم التعرف عليها:</h3>
                 <div className="flex flex-wrap gap-2 justify-start">
                   {preview.sheetsInfo.map((info, idx) => (
-                    <Badge key={idx} variant="secondary" className="text-[11px] py-1 px-2.5 bg-background border hover:bg-muted">
+                    <Badge key={idx} variant="secondary" className="group text-[11px] py-1 px-2.5 bg-background border hover:bg-muted relative pr-8">
                       📁 {info.sheetName} ← {info.gradeName ? `${info.gradeName}${info.className ? ` (${info.className})` : ""}` : "لم يتم المطابقة"} ({info.rowCount} طالب)
+                      <button
+                        type="button"
+                        onClick={() => setPreview((current) => current ? removePreviewSheet(current, info.sheetName) : current)}
+                        className="absolute top-1 right-1 inline-flex h-5 w-5 items-center justify-center rounded-full border border-border bg-background text-destructive opacity-0 transition-opacity duration-150 hover:bg-destructive/10 group-hover:opacity-100"
+                        title="حذف هذه الصفحة من المعاينة"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
                     </Badge>
                   ))}
                 </div>
