@@ -115,12 +115,22 @@ function Dashboard() {
   const byGrade = new Map<string, {
     name: string; level: number; count: number; paid: number; unpaid: number;
     totalDue: number; totalPaid: number; remaining: number;
+    boys: number; girls: number; muslims: number; christians: number;
   }>();
   (data?.rows ?? []).forEach((r) => {
     const key = r.grade_id ?? "—";
     const name = r.grades?.name ?? "بدون صف";
     const level = r.grades?.level ?? 999;
-    const cur = byGrade.get(key) ?? { name, level, count: 0, paid: 0, unpaid: 0, totalDue: 0, totalPaid: 0, remaining: 0 };
+    const cur = byGrade.get(key) ?? {
+      name, level, count: 0, paid: 0, unpaid: 0, totalDue: 0, totalPaid: 0, remaining: 0,
+      boys: 0, girls: 0, muslims: 0, christians: 0,
+    };
+    const gender = String(r.gender ?? "").trim();
+    const religion = String(r.religion ?? "").trim();
+    if (/^(?:ولد|boy|male)$/i.test(gender)) cur.boys += 1;
+    if (/^(?:بنت|girl|female)$/i.test(gender)) cur.girls += 1;
+    if (/^(?:مسلم|muslim)$/i.test(religion)) cur.muslims += 1;
+    if (/^(?:مسيحي|christian)$/i.test(religion)) cur.christians += 1;
     cur.count += 1;
     if (r.payment_status === "paid") cur.paid += 1; else cur.unpaid += 1;
     cur.totalDue += Number(r.total_due ?? 0);
@@ -164,7 +174,8 @@ function Dashboard() {
         const tot = rows.reduce((a, r) => ({
           count: a.count + r.count, paid: a.paid + r.paid, unpaid: a.unpaid + r.unpaid,
           totalDue: a.totalDue + r.totalDue, totalPaid: a.totalPaid + r.totalPaid, remaining: a.remaining + r.remaining,
-        }), { count: 0, paid: 0, unpaid: 0, totalDue: 0, totalPaid: 0, remaining: 0 });
+          boys: a.boys + r.boys, girls: a.girls + r.girls, muslims: a.muslims + r.muslims, christians: a.christians + r.christians,
+        }), { count: 0, paid: 0, unpaid: 0, totalDue: 0, totalPaid: 0, remaining: 0, boys: 0, girls: 0, muslims: 0, christians: 0 });
         const stageCount = stageTotals.get(stage) ?? { boys: 0, girls: 0, muslims: 0, christians: 0 };
         return (
           <Card key={stage} style={{ boxShadow: "var(--shadow-card)" }}>
@@ -191,9 +202,20 @@ function Dashboard() {
                       <th className="px-3 py-2 text-right">عدد الطلاب</th>
                       <th className="px-3 py-2 text-right">مسدد</th>
                       <th className="px-3 py-2 text-right">غير مسدد</th>
-                      <th className="px-3 py-2 text-right">المستحق</th>
-                      <th className="px-3 py-2 text-right">المدفوع</th>
-                      <th className="px-3 py-2 text-right">المتبقي</th>
+                      {isStudentAffairs ? (
+                        <>
+                          <th className="px-3 py-2 text-right">ولد</th>
+                          <th className="px-3 py-2 text-right">بنت</th>
+                          <th className="px-3 py-2 text-right">مسلم</th>
+                          <th className="px-3 py-2 text-right">مسيحي</th>
+                        </>
+                      ) : (
+                        <>
+                          <th className="px-3 py-2 text-right">المستحق</th>
+                          <th className="px-3 py-2 text-right">المدفوع</th>
+                          <th className="px-3 py-2 text-right">المتبقي</th>
+                        </>
+                      )}
                     </tr>
                   </thead>
                   <tbody>
@@ -203,9 +225,20 @@ function Dashboard() {
                         <td className="px-3 py-2">{fmt(g.count)}</td>
                         <td className="px-3 py-2"><Badge className="bg-success text-success-foreground">{fmt(g.paid)}</Badge></td>
                         <td className="px-3 py-2">{g.unpaid > 0 ? <Badge variant="destructive">{fmt(g.unpaid)}</Badge> : <span className="text-muted-foreground">0</span>}</td>
-                        <td className="px-3 py-2">{fmt(g.totalDue)}</td>
-                        <td className="px-3 py-2 text-success">{fmt(g.totalPaid)}</td>
-                        <td className="px-3 py-2 font-medium">{fmt(g.remaining)}</td>
+                        {isStudentAffairs ? (
+                          <>
+                            <td className="px-3 py-2">{fmt(g.boys)}</td>
+                            <td className="px-3 py-2">{fmt(g.girls)}</td>
+                            <td className="px-3 py-2">{fmt(g.muslims)}</td>
+                            <td className="px-3 py-2">{fmt(g.christians)}</td>
+                          </>
+                        ) : (
+                          <>
+                            <td className="px-3 py-2">{fmt(g.totalDue)}</td>
+                            <td className="px-3 py-2 text-success">{fmt(g.totalPaid)}</td>
+                            <td className="px-3 py-2 font-medium">{fmt(g.remaining)}</td>
+                          </>
+                        )}
                       </tr>
                     ))}
                     <tr className="border-t bg-muted/40 font-bold">
@@ -213,9 +246,20 @@ function Dashboard() {
                       <td className="px-3 py-2">{fmt(tot.count)}</td>
                       <td className="px-3 py-2">{fmt(tot.paid)}</td>
                       <td className="px-3 py-2">{fmt(tot.unpaid)}</td>
-                      <td className="px-3 py-2">{fmt(tot.totalDue)}</td>
-                      <td className="px-3 py-2">{fmt(tot.totalPaid)}</td>
-                      <td className="px-3 py-2">{fmt(tot.remaining)}</td>
+                      {isStudentAffairs ? (
+                        <>
+                          <td className="px-3 py-2">{fmt(tot.boys)}</td>
+                          <td className="px-3 py-2">{fmt(tot.girls)}</td>
+                          <td className="px-3 py-2">{fmt(tot.muslims)}</td>
+                          <td className="px-3 py-2">{fmt(tot.christians)}</td>
+                        </>
+                      ) : (
+                        <>
+                          <td className="px-3 py-2">{fmt(tot.totalDue)}</td>
+                          <td className="px-3 py-2">{fmt(tot.totalPaid)}</td>
+                          <td className="px-3 py-2">{fmt(tot.remaining)}</td>
+                        </>
+                      )}
                     </tr>
                   </tbody>
                 </table>
