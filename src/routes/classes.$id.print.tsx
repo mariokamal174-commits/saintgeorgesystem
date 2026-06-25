@@ -19,8 +19,8 @@ const FIELDS: { key: string; label: string; format?: (value: unknown, student: R
   { key: "birth_date", label: "تاريخ الميلاد" },
   { key: "_age", label: "السن (1/10)", format: (_value, student) => formatAge(student.birth_date as string | null) },
   { key: "phone", label: "الهاتف 1" },
-  { key: "phone2", label: "الهاتف 2" },
-  { key: "guardian_name", label: "ولي الأمر" },
+  { key: "phone2", label: "اسم الأم" },
+  { key: "guardian_name", label: "اسم الأم" },
   { key: "total_due", label: "إجمالي المستحق", format: (value) => formatAmount(value) },
   { key: "total_paid", label: "إجمالي المدفوع", format: (value) => formatAmount(value) },
   { key: "remaining_balance", label: "المتبقي", format: (value) => formatAmount(value) },
@@ -136,35 +136,23 @@ function PrintClass() {
       <div className="print-area bg-white text-black p-8 rounded-lg border">
         <div className="mb-6 space-y-6">
           <div className="flex items-start justify-between gap-4">
-            <div>
-              <img src="/school-logo.png" alt="شعار المدرسة" className="h-20 w-auto object-contain" />
-            </div>
-            <div className="text-right space-y-1 text-sm">
+            <div className="text-left space-y-1 text-sm">
               <div className="font-semibold">مديرية التربية و التعليم</div>
               <div className="font-semibold">ادارة بني سويف التعليمية</div>
               <div className="font-semibold">مدرسة سان جورج الدولية</div>
+            </div>
+            <div>
+              <img src="/school-logo.png" alt="شعار المدرسة" className="h-20 w-auto object-contain" />
             </div>
           </div>
           <div className="text-center">
             <h2 className="text-2xl font-bold">{gradeName ? `${gradeName} - ${classTitle}` : classTitle}</h2>
             <p className="text-sm">طباعة بيانات الفصل</p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+          <div className="grid grid-cols-1 md:grid-cols-1 gap-3 text-sm">
             <div>
               <div className="text-muted-foreground">عدد الطلاب</div>
               <div className="font-semibold">{students.length}</div>
-            </div>
-            <div>
-              <div className="text-muted-foreground">إجمالي المستحق</div>
-              <div className="font-semibold">{formatAmount(totals.totalDue)}</div>
-            </div>
-            <div>
-              <div className="text-muted-foreground">إجمالي المدفوع</div>
-              <div className="font-semibold">{formatAmount(totals.totalPaid)}</div>
-            </div>
-            <div>
-              <div className="text-muted-foreground">المتبقي</div>
-              <div className="font-semibold">{formatAmount(totals.remaining)}</div>
             </div>
           </div>
         </div>
@@ -177,7 +165,7 @@ function PrintClass() {
               <table className="w-full min-w-[720px] border-collapse text-sm">
                 <thead>
                   <tr>
-                    <th className="text-right py-2 px-3 bg-gray-100 border border-gray-200">م</th>
+                    <th className="text-right py-2 px-2 bg-gray-100 border border-gray-200 w-10">م</th>
                     {visibleFields.map((field) => (
                       <th key={field.key} className="text-right py-2 px-3 bg-gray-100 border border-gray-200">{field.label}</th>
                     ))}
@@ -186,7 +174,7 @@ function PrintClass() {
                 <tbody>
                   {students.map((student, index) => (
                     <tr key={String(student.id ?? Math.random())} className="border-b last:border-b-0">
-                      <td className="py-2 px-3 border border-gray-200 align-top text-center">{index + 1}</td>
+                      <td className="py-2 px-2 border border-gray-200 align-top text-center w-10">{index + 1}</td>
                       {visibleFields.map((field) => {
                         const raw = field.key === "_age" ? undefined : student[field.key];
                         const value = field.key === "_age"
@@ -228,7 +216,7 @@ function PrintClass() {
                   <div className="mt-1 font-semibold">{counts.christians}</div>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-8 pt-8 text-sm">
+              <div className="grid grid-cols-2 gap-8 pt-8 text-sm px-4">
                 <div className="text-right border-t border-slate-400 pt-2">شئون الطلبة</div>
                 <div className="text-left border-t border-slate-400 pt-2">مديرة المدرسة</div>
               </div>
