@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Plus, Download, Printer, Printer } from "lucide-react";
+import { Search, Plus, Download, Printer } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { formatAge } from "@/lib/age";
 import { exportStudentsToExcel } from "@/lib/student-export";
