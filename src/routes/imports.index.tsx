@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Upload, FileSpreadsheet, Loader2 } from "lucide-react";
+import { Upload, FileSpreadsheet, Loader2, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
 
@@ -32,6 +32,7 @@ interface Preview {
   parserVersion?: string;
   rawTotal?: number;
   uniqueStudents?: number;
+  existingKeys?: string[];
 }
 
 const COL_ALIASES: Record<string, string[]> = {
@@ -108,6 +109,33 @@ function normalize(row: RowMap): RowMap {
     }
   }
   return out;
+}
+
+function computePreviewCounts(rows: RowMap[], existingKeys: Set<string>) {
+  let toInsert = 0;
+  let toUpdate = 0;
+  for (const r of rows) {
+    const key = r.student_code ? `c:${String(r.student_code).trim()}` : r.national_id ? `n:${String(r.national_id).trim()}` : "";
+    if (key && existingKeys.has(key)) {
+      toUpdate++;
+    } else {
+      toInsert++;
+    }
+  }
+  return { toInsert, toUpdate, uniqueStudents: rows.length };
+}
+
+function updatePreviewRows(preview: Preview, rowIndex: number): Preview {
+  const existingKeys = new Set<string>(preview.existingKeys ?? []);
+  const rows = preview.rows.filter((_, index) => index !== rowIndex);
+  const counts = computePreviewCounts(rows, existingKeys);
+  return {
+    ...preview,
+    rows,
+    toInsert: counts.toInsert,
+    toUpdate: counts.toUpdate,
+    uniqueStudents: counts.uniqueStudents,
+  };
 }
 
 // Import parser version (update when changing parsing/matching logic)
@@ -664,7 +692,7 @@ function Imports() {
         const rawTotal = allRows.length; // raw rows before dedupe
         const uniqueStudents = dedupedRows.length;
 
-        setPreview({ rows: dedupedRows, toInsert, toUpdate, errors: [], sheetsInfo: processedSheetsInfo, parserVersion: IMPORT_PARSER_VERSION, rawTotal, uniqueStudents });
+        setPreview({ rows: dedupedRows, toInsert, toUpdate, errors: [], sheetsInfo: processedSheetsInfo, parserVersion: IMPORT_PARSER_VERSION, rawTotal, uniqueStudents, existingKeys: Array.from(existing) });
         toast.success(`تم تحليل ${rawTotal} صف من ${processedSheetsInfo.length} صفحة — عرض ${uniqueStudents} طلاب بعد الديدوبّينج`);
       } catch (err) {
         const msg = err && typeof err === "object" && "message" in err ? (err as any).message : String(err);
@@ -813,7 +841,7 @@ function Imports() {
             {preview.parserVersion && (
               <div className="text-xs text-muted-foreground mb-3">إصدار محلل الاستيراد: <strong>{preview.parserVersion}</strong></div>
             )}
-            
+            <div className="text-xs text-muted-foreground mb-3">اضغط على زر الحذف في كل صف لإزالته من المعاينة قبل تأكيد الاستيراد.</div>
             {preview.sheetsInfo && preview.sheetsInfo.length > 0 && (
               <div className="mb-4 bg-muted/40 p-3 rounded-lg border text-right" dir="rtl">
                 <h3 className="font-semibold text-sm mb-2 text-right">الفصول والصفوف التي تم التعرف عليها:</h3>
@@ -837,6 +865,7 @@ function Imports() {
                   <th className="px-2 py-2 text-right">قسط 2</th>
                   <th className="px-2 py-2 text-right">سابقة</th>
                   <th className="px-2 py-2 text-right">أخرى</th>
+                  <th className="px-2 py-2 text-center">حذف</th>
                 </tr></thead>
                 <tbody>
                   {preview.rows.slice(0, 50).map((r, i) => (
@@ -860,6 +889,16 @@ function Imports() {
                       <td className="px-2 py-1.5">{String(r.second_installment ?? 0)}</td>
                       <td className="px-2 py-1.5">{String(r.previous_installments ?? 0)}</td>
                       <td className="px-2 py-1.5">{String(r.other_fees ?? 0)}</td>
+                      <td className="px-2 py-1.5 text-center">
+                        <button
+                          type="button"
+                          onClick={() => setPreview((current) => current ? updatePreviewRows(current, i) : current)}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border bg-background text-destructive hover:bg-destructive/10"
+                          title="حذف الصف"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
