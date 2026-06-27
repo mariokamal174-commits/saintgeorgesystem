@@ -50,25 +50,22 @@ function FinanceInstallments() {
       if (grade) qb = qb.eq("grade_id", grade);
       const { data, error } = await qb;
       if (error) throw error;
-      const rows: S[] = (data ?? []).map((r: Record<string, unknown>) => ({
-        id: r.id as string, full_name: r.full_name as string, student_code: (r.student_code as string | null) ?? null,
+      const rows: S[] = ((data as any) ?? []).map((r: any) => ({
+        id: r.id as string,
+        full_name: r.full_name as string,
+        student_code: (r.student_code as string | null) ?? null,
         grade_name: ((r.grades as { name?: string } | null)?.name ?? null),
-        first_installment: Number(r.first_installment) || 0, second_installment: Number(r.second_installment) || 0,
-        previous_installments: Number(r.previous_installments) || 0, other_fees: Number(r.other_fees) || 0,
-        activity_fees: Number(r.activity_fees) || 0, education_fees: Number(r.education_fees) || 0,
-        total_due: r.total_due as number | null, total_paid: Number(r.total_paid) || 0,
-        payment_status: r.payment_status as string, archived_year: r.archived_year as string | null,
+        first_installment: Number(r.first_installment) || 0,
+        second_installment: Number(r.second_installment) || 0,
+        previous_installments: Number(r.previous_installments) || 0,
+        other_fees: Number(r.other_fees) || 0,
+        activity_fees: Number(r.activity_fees) || 0,
+        education_fees: Number(r.education_fees) || 0,
+        total_due: r.total_due as number | null,
+        total_paid: Number(r.total_paid) || 0,
+        payment_status: r.payment_status as string,
+        archived_year: r.archived_year as string | null,
       }));
-        const hasExact = uniqueGrades.includes(grade);
-        return rows.filter(r => {
-          const gn = r.grade_name ?? "";
-          if (hasExact) {
-            return gn === grade;
-          }
-          const regex = new RegExp(`\\b${grade}\\b`, 'i');
-          return regex.test(gn) || gn.includes(grade);
-        });
-      }
       return rows;
     },
   });

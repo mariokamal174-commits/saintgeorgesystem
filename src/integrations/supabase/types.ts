@@ -366,8 +366,8 @@ export type Database = {
         Row: {
           address: string | null
           archived_year: string | null
-          birth_date: string | null
           birth_place: string | null
+          birth_date: string | null
           class_id: string | null
           created_at: string
           created_by: string | null
@@ -385,6 +385,8 @@ export type Database = {
           national_id: string | null
           notes: string | null
           other_fees: number
+          activity_fees: number
+          education_fees: number
           payment_status: Database["public"]["Enums"]["payment_status"]
           phone: string | null
           phone2: string | null
@@ -424,6 +426,8 @@ export type Database = {
           national_id?: string | null
           notes?: string | null
           other_fees?: number
+          activity_fees?: number
+          education_fees?: number
           payment_status?: Database["public"]["Enums"]["payment_status"]
           phone?: string | null
           phone2?: string | null
@@ -462,6 +466,8 @@ export type Database = {
           national_id?: string | null
           notes?: string | null
           other_fees?: number
+          activity_fees?: number
+          education_fees?: number
           payment_status?: Database["public"]["Enums"]["payment_status"]
           phone?: string | null
           phone2?: string | null
