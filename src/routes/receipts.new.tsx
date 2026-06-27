@@ -51,19 +51,20 @@ function NewReceipt() {
     payer_name: "",
   });
   const [studentQuery, setStudentQuery] = useState("");
+  const [activeStudentQuery, setActiveStudentQuery] = useState("");
   const [selectOpen, setSelectOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   const selectedStudent = students.find((s) => s.id === form.student_id);
   const studentOptions = useMemo(() => {
-    const query = studentQuery.trim().toLowerCase();
+    const query = activeStudentQuery.trim().toLowerCase();
     if (!query) return students;
     return students.filter((s) => {
       const name = s.full_name.toLowerCase();
       const code = String(s.student_code ?? "").toLowerCase();
       return name.includes(query) || code.includes(query);
     });
-  }, [students, studentQuery]);
+  }, [students, activeStudentQuery]);
 
   useEffect(() => {
     if (selectOpen) {
@@ -190,6 +191,13 @@ function NewReceipt() {
                       ref={searchInputRef}
                       value={studentQuery}
                       onChange={(e) => setStudentQuery(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          setActiveStudentQuery(studentQuery.trim());
+                        }
+                      }}
+                      onBlur={() => setActiveStudentQuery(studentQuery.trim())}
                       placeholder="ابحث عن طالب..."
                       className="w-full"
                     />
@@ -198,7 +206,7 @@ function NewReceipt() {
                   {studentOptions.length > 0 ? studentOptions.map(s => (
                     <SelectItem key={s.id} value={s.id}>{s.full_name} {s.student_code && `(${s.student_code})`}</SelectItem>
                   )) : (
-                    <SelectItem value="" disabled>لا يوجد نتائج</SelectItem>
+                    <div className="px-3 py-2 text-sm text-muted-foreground">لا يوجد نتائج</div>
                   )}
                 </SelectContent>
               </Select>
