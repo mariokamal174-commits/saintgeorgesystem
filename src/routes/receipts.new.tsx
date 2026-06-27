@@ -192,11 +192,14 @@ function NewReceipt() {
                       value={studentQuery}
                       onChange={(e) => setStudentQuery(e.target.value)}
                       onKeyDown={(e) => {
+                        e.stopPropagation();
                         if (e.key === "Enter") {
                           e.preventDefault();
                           setActiveStudentQuery(studentQuery.trim());
                         }
                       }}
+                      onKeyUp={(e) => e.stopPropagation()}
+                      onKeyPress={(e) => e.stopPropagation()}
                       onBlur={() => setActiveStudentQuery(studentQuery.trim())}
                       placeholder="ابحث عن طالب..."
                       className="w-full"
