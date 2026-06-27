@@ -51,6 +51,8 @@ function NewReceipt() {
     payer_name: "",
   });
 
+  const selectedStudent = students.find((s) => s.id === form.student_id);
+
   useEffect(() => {
     supabase.from("students").select("id, full_name, student_code").order("full_name").limit(500)
       .then(({ data }) => setStudents(data ?? []));
@@ -165,6 +167,9 @@ function NewReceipt() {
                   ))}
                 </SelectContent>
               </Select>
+              {selectedStudent && (
+                <div className="text-sm text-muted-foreground">الطالب المحدد: {selectedStudent.full_name}{selectedStudent.student_code ? ` (${selectedStudent.student_code})` : ""}</div>
+              )}
             </div>
 
             <div className="space-y-2">
