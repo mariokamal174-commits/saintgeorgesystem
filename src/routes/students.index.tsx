@@ -74,6 +74,40 @@ function StudentsList() {
   }, [refetch]);
 
   const fmt = (n: number) => new Intl.NumberFormat("ar-EG").format(Math.round(n));
+  const [importedStudentIds, setImportedStudentIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("imported-student-ids");
+      if (raw) {
+        const ids = JSON.parse(raw) as string[];
+        setImportedStudentIds(new Set(ids.filter(Boolean)));
+      }
+    } catch {
+      setImportedStudentIds(new Set());
+    }
+  }, []);
+
+  useEffect(() => {
+    const syncImportedIds = () => {
+      try {
+        const raw = localStorage.getItem("imported-student-ids");
+        if (raw) {
+          const ids = JSON.parse(raw) as string[];
+          setImportedStudentIds(new Set(ids.filter(Boolean)));
+        } else {
+          setImportedStudentIds(new Set());
+        }
+      } catch {
+        setImportedStudentIds(new Set());
+      }
+    };
+
+    window.addEventListener("students-import-mark-updated", syncImportedIds);
+    return () => window.removeEventListener("students-import-mark-updated", syncImportedIds);
+  }, []);
+
+  const isImportedInCurrentSession = (studentId: string) => importedStudentIds.has(studentId);
   const pages = useMemo(() => Math.max(1, Math.ceil((data?.total ?? 0) / PAGE)), [data]);
 
   const currentGrade = useMemo(() => {
@@ -202,9 +236,12 @@ function StudentsList() {
               {data?.rows.map((s: any) => (
                 <tr key={s.id} className="border-t hover:bg-muted/50">
                   <td className="px-4 py-3">
-                    <Link to="/students/$id" params={{ id: s.id }} className="font-medium hover:text-primary">{s.full_name}</Link>
-                    {s.archived_year && <Badge variant="secondary" className="mr-2 text-xs">{s.archived_year}</Badge>}
-                    {s.transfer_out_type && <Badge variant="outline" className="mr-2 text-xs">{s.transfer_out_type === "transfer" ? "محول" : "مسحوب"}</Badge>}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Link to="/students/$id" params={{ id: s.id }} className="font-medium hover:text-primary">{s.full_name}</Link>
+                      {isImportedInCurrentSession(s.id) && <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30">جديد</Badge>}
+                      {s.archived_year && <Badge variant="secondary" className="text-xs">{s.archived_year}</Badge>}
+                      {s.transfer_out_type && <Badge variant="outline" className="text-xs">{s.transfer_out_type === "transfer" ? "محول" : "مسحوب"}</Badge>}
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">{s.student_code ?? "—"}</td>
                   <td className="px-4 py-3 text-muted-foreground">{formatAge(s.birth_date)}</td>

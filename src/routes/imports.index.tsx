@@ -741,6 +741,7 @@ function Imports() {
     if (!preview) return;
     setImporting(true);
     let inserted = 0, updated = 0, skipped = 0;
+    const importedIds = new Set<string>();
     for (const r of preview.rows) {
       const payload = {
         full_name: String(r.full_name ?? "").trim() || "بدون اسم",
@@ -775,15 +776,23 @@ function Imports() {
         existing = data;
       }
       if (existing) {
-        if (existing.student_code) {
-          payload.student_code = existing.student_code;
-        }
+        if (existing.student_code) payload.student_code = existing.student_code;
         const { error } = await supabase.from("students").update(payload).eq("id", existing.id);
-        if (error) skipped++; else updated++;
+        if (error) skipped++; else {
+          updated++;
+          importedIds.add(existing.id);
+        }
       } else {
-        const { error } = await supabase.from("students").insert(payload);
-        if (error) skipped++; else inserted++;
+        const { data, error } = await supabase.from("students").insert(payload).select("id").maybeSingle();
+        if (error) skipped++; else {
+          inserted++;
+          if (data?.id) importedIds.add(data.id);
+        }
       }
+    }
+    if (importedIds.size) {
+      localStorage.setItem("imported-student-ids", JSON.stringify(Array.from(importedIds)));
+      window.dispatchEvent(new Event("students-import-mark-updated"));
     }
     await supabase.from("student_imports").insert({
       rows_total: preview.rows.length, rows_inserted: inserted, rows_updated: updated, rows_skipped: skipped,
