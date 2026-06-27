@@ -72,7 +72,7 @@ function NewReceipt() {
   }, [selectOpen]);
 
   useEffect(() => {
-    supabase.from("students").select("id, full_name, student_code").order("full_name").limit(500)
+    supabase.from("students").select("id, full_name, student_code").is("archived_year", null).order("full_name").limit(500)
       .then(({ data }) => setStudents(data ?? []));
   }, []);
 
