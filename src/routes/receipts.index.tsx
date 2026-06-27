@@ -22,6 +22,7 @@ function ReceiptsList() {
     queryFn: async () => {
       const { data } = await supabase.from("receipts")
         .select("*, students(full_name, student_code)")
+        .is("students.archived_year", null)
         .order("created_at", { ascending: false }).limit(100);
       return data ?? [];
     },
