@@ -75,6 +75,13 @@ function StudentDetail() {
   if (!data?.student) return <div className="text-center text-muted-foreground py-12">جاري التحميل...</div>;
   const s = data.student;
   const fmt = (n: number) => new Intl.NumberFormat("ar-EG").format(Math.round(n));
+  const activityFees = data.receipts.reduce((sum, r) => sum + Number(r.activity_fees ?? 0), 0);
+  const educationFees = data.receipts.reduce((sum, r) => sum + Number(r.education_fees ?? 0), 0);
+  const feesInFirstInstallment = activityFees + educationFees;
+  const installmentStatus = (label: string) => {
+    const match = data.installments.find((i) => i.label === label);
+    return match ? match.status : undefined;
+  };
 
   async function setStudentPaid(nextPaid: boolean) {
     setSavingPayment(true);
@@ -200,12 +207,15 @@ function StudentDetail() {
         <Card>
           <CardHeader><CardTitle>تفاصيل الأقساط</CardTitle></CardHeader>
           <CardContent className="space-y-2 text-sm">
-            <Row label="القسط الأول" value={fmt(Number(s.first_installment))} />
-            <Row label="القسط الثاني" value={fmt(Number(s.second_installment))} />
-            <Row label="أقساط سنوات سابقة" value={fmt(Number(s.previous_installments))} />
+            <Row label="القسط الأول" value={fmt(Number(s.first_installment))} status={installmentStatus("القسط الأول")} />
+            <Row label="رسوم التعليم ضمن القسط الأول" value={fmt(educationFees)} />
+            <Row label="رسوم النشاط ضمن القسط الأول" value={fmt(activityFees)} />
+            <Row label="إجمالي القسط الأول مع الرسوم" value={fmt(Number(s.first_installment) + feesInFirstInstallment)} />
+            <Row label="القسط الثاني" value={fmt(Number(s.second_installment))} status={installmentStatus("القسط الثاني")} />
+            <Row label="أقساط سنوات سابقة" value={fmt(Number(s.previous_installments))} status={installmentStatus("أقساط سنوات سابقة")} />
             <Row label="رسوم أخرى" value={fmt(Number(s.other_fees))} />
             <div className="border-t pt-2 mt-2 flex justify-between font-bold">
-              <span>الإجمالي</span><span>{fmt(Number(s.total_due))}</span>
+              <span>الإجمالي مع الرسوم</span><span>{fmt(Number(s.first_installment) + Number(s.second_installment) + Number(s.previous_installments) + Number(s.other_fees) + activityFees + educationFees)}</span>
             </div>
           </CardContent>
         </Card>
@@ -418,6 +428,13 @@ function StatCard({ label, value, tone }: { label: string; value: string; tone?:
     <div className={`text-2xl font-bold mt-1 ${cls}`}>{value}</div>
   </CardContent></Card>;
 }
-function Row({ label, value }: { label: string; value: string }) {
-  return <div className="flex justify-between"><span className="text-muted-foreground">{label}</span><span>{value}</span></div>;
+function Row({ label, value, status }: { label: string; value: string; status?: string }) {
+  return <div className="flex justify-between items-center gap-2"><span className="text-muted-foreground flex items-center gap-2">
+    {label}
+    {status ? (
+      <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold uppercase">
+        {status === "paid" ? "مدفوع" : "غير مدفوع"}
+      </span>
+    ) : null}
+  </span><span>{value}</span></div>;
 }
