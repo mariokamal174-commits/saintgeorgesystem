@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { AppShell } from "@/components/app-shell";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -50,8 +50,18 @@ function NewReceipt() {
     education_fees: "",
     payer_name: "",
   });
+  const [studentQuery, setStudentQuery] = useState("");
 
   const selectedStudent = students.find((s) => s.id === form.student_id);
+  const studentOptions = useMemo(() => {
+    const query = studentQuery.trim().toLowerCase();
+    if (!query) return students;
+    return students.filter((s) => {
+      const name = s.full_name.toLowerCase();
+      const code = String(s.student_code ?? "").toLowerCase();
+      return name.includes(query) || code.includes(query);
+    });
+  }, [students, studentQuery]);
 
   useEffect(() => {
     supabase.from("students").select("id, full_name, student_code").order("full_name").limit(500)
@@ -158,11 +168,19 @@ function NewReceipt() {
           <CardHeader><CardTitle>بيانات الإيصال</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
+              <Label>ابحث باسم الطالب أو الكود</Label>
+              <Input
+                value={studentQuery}
+                onChange={(e) => setStudentQuery(e.target.value)}
+                placeholder="ابحث عن طالب..."
+              />
+            </div>
+            <div className="space-y-2">
               <Label>الطالب *</Label>
               <Select value={form.student_id} onValueChange={(v) => setForm({ ...form, student_id: v })}>
                 <SelectTrigger><SelectValue placeholder="اختر الطالب" /></SelectTrigger>
                 <SelectContent>
-                  {students.map(s => (
+                  {studentOptions.map(s => (
                     <SelectItem key={s.id} value={s.id}>{s.full_name} {s.student_code && `(${s.student_code})`}</SelectItem>
                   ))}
                 </SelectContent>
