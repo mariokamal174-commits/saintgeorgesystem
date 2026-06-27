@@ -52,6 +52,7 @@ function NewReceipt() {
   });
   const [studentQuery, setStudentQuery] = useState("");
   const [selectOpen, setSelectOpen] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   const selectedStudent = students.find((s) => s.id === form.student_id);
   const studentOptions = useMemo(() => {
@@ -63,6 +64,12 @@ function NewReceipt() {
       return name.includes(query) || code.includes(query);
     });
   }, [students, studentQuery]);
+
+  useEffect(() => {
+    if (selectOpen) {
+      searchInputRef.current?.focus();
+    }
+  }, [selectOpen]);
 
   useEffect(() => {
     supabase.from("students").select("id, full_name, student_code").order("full_name").limit(500)
@@ -169,17 +176,6 @@ function NewReceipt() {
           <CardHeader><CardTitle>بيانات الإيصال</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label>ابحث باسم الطالب أو الكود</Label>
-              <Input
-                value={studentQuery}
-                onChange={(e) => {
-                  setStudentQuery(e.target.value);
-                  setSelectOpen(true);
-                }}
-                placeholder="ابحث عن طالب..."
-              />
-            </div>
-            <div className="space-y-2">
               <Label>الطالب *</Label>
               <Select
                 value={form.student_id}
@@ -189,9 +185,21 @@ function NewReceipt() {
               >
                 <SelectTrigger><SelectValue placeholder="اختر الطالب" /></SelectTrigger>
                 <SelectContent>
-                  {studentOptions.map(s => (
+                  <div className="px-2 py-2">
+                    <Input
+                      ref={searchInputRef}
+                      value={studentQuery}
+                      onChange={(e) => setStudentQuery(e.target.value)}
+                      placeholder="ابحث عن طالب..."
+                      className="w-full"
+                    />
+                  </div>
+                  <div className="border-t border-muted/30" />
+                  {studentOptions.length > 0 ? studentOptions.map(s => (
                     <SelectItem key={s.id} value={s.id}>{s.full_name} {s.student_code && `(${s.student_code})`}</SelectItem>
-                  ))}
+                  )) : (
+                    <SelectItem value="" disabled>لا يوجد نتائج</SelectItem>
+                  )}
                 </SelectContent>
               </Select>
               {selectedStudent && (
