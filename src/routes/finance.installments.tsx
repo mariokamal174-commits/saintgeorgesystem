@@ -1,6 +1,6 @@
 import { createFileRoute, Outlet } from "@tanstack/react-router";
 import { AppShell } from "@/components/app-shell";
-import { useMemo, useState } from "react";
+import { type ChangeEvent, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -42,7 +42,7 @@ function FinanceInstallments() {
     },
   });
 
-  const { data, refetch } = useQuery({
+  const { data, refetch } = useQuery<{ rows: S[]; supportsStudentFeeColumns: boolean }>({
     queryKey: ["finance-students", q, grade],
     queryFn: async () => {
       const columns = "id,full_name,student_code,grade_id,first_installment,second_installment,previous_installments,other_fees,activity_fees,education_fees,total_due,total_paid,payment_status,archived_year,grades(name)";
@@ -77,14 +77,17 @@ function FinanceInstallments() {
         if (/activity_fees|education_fees/i.test(error.message ?? "")) {
           const { data: fallbackData, error: fallbackError } = await buildQuery(fallbackColumns);
           if (fallbackError) throw fallbackError;
-          return mapRows(fallbackData);
+          return { rows: mapRows(fallbackData), supportsStudentFeeColumns: false };
         }
         throw error;
       }
 
-      return mapRows(studentData);
+      return { rows: mapRows(studentData), supportsStudentFeeColumns: true };
     },
   });
+
+  const students = data?.rows ?? [];
+  const supportsStudentFeeColumns = data?.supportsStudentFeeColumns ?? true;
 
   if (!(isFinance || isAdmin)) return <div className="text-center text-muted-foreground py-12">هذه الصفحة متاحة للشؤون المالية فقط</div>;
 
@@ -94,9 +97,9 @@ function FinanceInstallments() {
     setSelected(n);
   }
   function toggleAll() {
-    if (!data) return;
-    if (selected.size === data.length) setSelected(new Set());
-    else setSelected(new Set(data.map(s => s.id)));
+    if (students.length === 0) return;
+    if (selected.size === students.length) setSelected(new Set());
+    else setSelected(new Set(students.map(s => s.id)));
   }
 
   async function applyTemplate() {
@@ -107,8 +110,8 @@ function FinanceInstallments() {
     if (tpl.second_installment !== "") payload.second_installment = Number(tpl.second_installment) || 0;
     if (tpl.previous_installments !== "") payload.previous_installments = Number(tpl.previous_installments) || 0;
     if (tpl.other_fees !== "") payload.other_fees = Number(tpl.other_fees) || 0;
-    if (tpl.activity_fees !== "") payload.activity_fees = Number(tpl.activity_fees) || 0;
-    if (tpl.education_fees !== "") payload.education_fees = Number(tpl.education_fees) || 0;
+    if (supportsStudentFeeColumns && tpl.activity_fees !== "") payload.activity_fees = Number(tpl.activity_fees) || 0;
+    if (supportsStudentFeeColumns && tpl.education_fees !== "") payload.education_fees = Number(tpl.education_fees) || 0;
     if (Object.keys(payload).length === 0) { setSaving(false); return toast.error("أدخل قيمة واحدة على الأقل"); }
     const { error } = await supabase.from("students").update(payload).in("id", Array.from(selected));
     setSaving(false);
@@ -119,11 +122,17 @@ function FinanceInstallments() {
   }
 
   async function saveRow(s: S) {
-    const { error } = await supabase.from("students").update({
-      first_installment: s.first_installment, second_installment: s.second_installment,
-      previous_installments: s.previous_installments, other_fees: s.other_fees,
-      education_fees: s.education_fees, activity_fees: s.activity_fees,
-    }).eq("id", s.id);
+    const updatePayload: Record<string, number> = {
+      first_installment: s.first_installment,
+      second_installment: s.second_installment,
+      previous_installments: s.previous_installments,
+      other_fees: s.other_fees,
+    };
+    if (supportsStudentFeeColumns) {
+      updatePayload.education_fees = s.education_fees;
+      updatePayload.activity_fees = s.activity_fees;
+    }
+    const { error } = await supabase.from("students").update(updatePayload).eq("id", s.id);
     if (error) return toast.error(error.message);
     toast.success("تم الحفظ");
     refetch();
@@ -144,8 +153,12 @@ function FinanceInstallments() {
             <div><Label>القسط الثاني</Label><Input type="number" value={tpl.second_installment} onChange={(e) => setTpl({ ...tpl, second_installment: e.target.value })} /></div>
             <div><Label>أقساط سابقة</Label><Input type="number" value={tpl.previous_installments} onChange={(e) => setTpl({ ...tpl, previous_installments: e.target.value })} /></div>
             <div><Label>رسوم أخرى</Label><Input type="number" value={tpl.other_fees} onChange={(e) => setTpl({ ...tpl, other_fees: e.target.value })} /></div>
-            <div><Label>رسوم التعليم</Label><Input type="number" value={tpl.education_fees} onChange={(e) => setTpl({ ...tpl, education_fees: e.target.value })} /></div>
-            <div><Label>رسوم النشاط</Label><Input type="number" value={tpl.activity_fees} onChange={(e) => setTpl({ ...tpl, activity_fees: e.target.value })} /></div>
+            {supportsStudentFeeColumns && (
+              <>
+                <div><Label>رسوم التعليم</Label><Input type="number" value={tpl.education_fees} onChange={(e) => setTpl({ ...tpl, education_fees: e.target.value })} /></div>
+                <div><Label>رسوم النشاط</Label><Input type="number" value={tpl.activity_fees} onChange={(e) => setTpl({ ...tpl, activity_fees: e.target.value })} /></div>
+              </>
+            )}
           </div>
           <div className="flex flex-wrap gap-2 items-end">
             <div className="flex-1 min-w-48">
@@ -167,30 +180,30 @@ function FinanceInstallments() {
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>الطلاب ({data?.length ?? 0})</CardTitle></CardHeader>
+        <CardHeader><CardTitle>الطلاب ({students.length})</CardTitle></CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-muted text-muted-foreground">
                 <tr>
-                  <th className="px-2 py-2"><Checkbox checked={!!data && data.length > 0 && selected.size === data.length} onCheckedChange={toggleAll} /></th>
+                  <th className="px-2 py-2"><Checkbox checked={students.length > 0 && selected.size === students.length} onCheckedChange={toggleAll} /></th>
                   <th className="px-2 py-2 text-right">الاسم</th>
                   <th className="px-2 py-2 text-right">الفصل</th>
                   <th className="px-2 py-2 text-right">قسط 1</th>
                   <th className="px-2 py-2 text-right">قسط 2</th>
                   <th className="px-2 py-2 text-right">سابقة</th>
                   <th className="px-2 py-2 text-right">أخرى</th>
-                  <th className="px-2 py-2 text-right">تعليم</th>
-                  <th className="px-2 py-2 text-right">نشاط</th>
+                  {supportsStudentFeeColumns && <th className="px-2 py-2 text-right">تعليم</th>}
+                  {supportsStudentFeeColumns && <th className="px-2 py-2 text-right">نشاط</th>}
                   <th className="px-2 py-2 text-right">إجمالي</th>
                   <th className="px-2 py-2 text-right">حفظ</th>
                 </tr>
               </thead>
               <tbody>
-                {(data ?? []).map((s) => (
-                  <Row key={s.id} s={s} selected={selected.has(s.id)} onToggle={() => toggle(s.id)} onSave={saveRow} />
+                {students.map((s) => (
+                  <Row key={s.id} s={s} selected={selected.has(s.id)} onToggle={() => toggle(s.id)} onSave={saveRow} supportsStudentFeeColumns={supportsStudentFeeColumns} />
                 ))}
-                {(data ?? []).length === 0 && <tr><td colSpan={9} className="text-center py-8 text-muted-foreground">لا يوجد طلاب</td></tr>}
+                {students.length === 0 && <tr><td colSpan={supportsStudentFeeColumns ? 11 : 9} className="text-center py-8 text-muted-foreground">لا يوجد طلاب</td></tr>}
               </tbody>
             </table>
           </div>
@@ -200,10 +213,10 @@ function FinanceInstallments() {
   );
 }
 
-function Row({ s, selected, onToggle, onSave }: { s: S; selected: boolean; onToggle: () => void; onSave: (s: S) => void }) {
+function Row({ s, selected, onToggle, onSave, supportsStudentFeeColumns }: { s: S; selected: boolean; onToggle: () => void; onSave: (s: S) => void; supportsStudentFeeColumns: boolean }) {
   const [r, setR] = useState(s);
-  const upd = (k: keyof S) => (e: React.ChangeEvent<HTMLInputElement>) => setR({ ...r, [k]: Number(e.target.value) || 0 });
-  const total = (r.first_installment || 0) + (r.second_installment || 0) + (r.previous_installments || 0) + (r.other_fees || 0) + (r.education_fees || 0) + (r.activity_fees || 0);
+  const upd = (k: keyof S) => (e: ChangeEvent<HTMLInputElement>) => setR({ ...r, [k]: Number(e.target.value) || 0 });
+  const total = (r.first_installment || 0) + (r.second_installment || 0) + (r.previous_installments || 0) + (r.other_fees || 0) + (supportsStudentFeeColumns ? (r.education_fees || 0) + (r.activity_fees || 0) : 0);
   return (
     <tr className="border-t">
       <td className="px-2 py-1.5"><Checkbox checked={selected} onCheckedChange={onToggle} /></td>
@@ -213,8 +226,8 @@ function Row({ s, selected, onToggle, onSave }: { s: S; selected: boolean; onTog
       <td className="px-2 py-1.5"><Input type="number" className="h-8 w-24" value={r.second_installment} onChange={upd("second_installment")} /></td>
       <td className="px-2 py-1.5"><Input type="number" className="h-8 w-24" value={r.previous_installments} onChange={upd("previous_installments")} /></td>
       <td className="px-2 py-1.5"><Input type="number" className="h-8 w-24" value={r.other_fees} onChange={upd("other_fees")} /></td>
-      <td className="px-2 py-1.5"><Input type="number" className="h-8 w-24" value={r.education_fees} onChange={upd("education_fees")} /></td>
-      <td className="px-2 py-1.5"><Input type="number" className="h-8 w-24" value={r.activity_fees} onChange={upd("activity_fees")} /></td>
+      {supportsStudentFeeColumns && <td className="px-2 py-1.5"><Input type="number" className="h-8 w-24" value={r.education_fees} onChange={upd("education_fees")} /></td>}
+      {supportsStudentFeeColumns && <td className="px-2 py-1.5"><Input type="number" className="h-8 w-24" value={r.activity_fees} onChange={upd("activity_fees")} /></td>}
       <td className="px-2 py-1.5 font-bold">{new Intl.NumberFormat("ar-EG").format(total)}</td>
       <td className="px-2 py-1.5"><Button size="sm" variant="outline" onClick={() => onSave(r)}>حفظ</Button></td>
     </tr>

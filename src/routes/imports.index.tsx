@@ -791,7 +791,19 @@ function Imports() {
       }
     }
     if (importedIds.size) {
-      localStorage.setItem("imported-student-ids", JSON.stringify(Array.from(importedIds)));
+      const existingRaw = localStorage.getItem("imported-student-ids");
+      const persistedIds = new Set<string>(Array.from(importedIds));
+      if (existingRaw) {
+        try {
+          const parsed = JSON.parse(existingRaw);
+          if (Array.isArray(parsed)) {
+            parsed.filter(Boolean).forEach((id) => persistedIds.add(String(id)));
+          }
+        } catch {
+          // ignore invalid persisted data
+        }
+      }
+      localStorage.setItem("imported-student-ids", JSON.stringify(Array.from(persistedIds)));
       window.dispatchEvent(new Event("students-import-mark-updated"));
     }
     await supabase.from("student_imports").insert({
