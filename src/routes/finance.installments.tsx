@@ -36,7 +36,7 @@ function FinanceInstallments() {
   const { data: gradeRows } = useQuery({
     queryKey: ["finance-installment-grades"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("grades").select("name").order("name");
+      const { data, error } = await supabase.from("grades").select("id,name").order("name");
       if (error) throw error;
       return data ?? [];
     },
@@ -45,8 +45,9 @@ function FinanceInstallments() {
   const { data, refetch } = useQuery({
     queryKey: ["finance-students", q, grade],
     queryFn: async () => {
-      let qb = supabase.from("students").select("id,full_name,student_code,first_installment,second_installment,previous_installments,other_fees,activity_fees,education_fees,total_due,total_paid,payment_status,archived_year,grades(name)").is("archived_year", null).order("full_name").limit(500);
+      let qb = supabase.from("students").select("id,full_name,student_code,grade_id,first_installment,second_installment,previous_installments,other_fees,activity_fees,education_fees,total_due,total_paid,payment_status,archived_year,grades(name)").is("archived_year", null).order("full_name").limit(500);
       if (q) qb = qb.ilike("full_name", `%${q}%`);
+      if (grade) qb = qb.eq("grade_id", grade);
       const { data, error } = await qb;
       if (error) throw error;
       const rows: S[] = (data ?? []).map((r: Record<string, unknown>) => ({
@@ -58,8 +59,6 @@ function FinanceInstallments() {
         total_due: r.total_due as number | null, total_paid: Number(r.total_paid) || 0,
         payment_status: r.payment_status as string, archived_year: r.archived_year as string | null,
       }));
-      if (grade) {
-        const uniqueGrades = Array.from(new Set(rows.map(r => r.grade_name).filter(Boolean))) as string[];
         const hasExact = uniqueGrades.includes(grade);
         return rows.filter(r => {
           const gn = r.grade_name ?? "";
@@ -73,12 +72,6 @@ function FinanceInstallments() {
       return rows;
     },
   });
-
-  const grades = useMemo(() => {
-    const set = new Set<string>();
-    (data ?? []).forEach(s => s.grade_name && set.add(s.grade_name));
-    return Array.from(set).sort();
-  }, [data]);
 
   if (!(isFinance || isAdmin)) return <div className="text-center text-muted-foreground py-12">هذه الصفحة متاحة للشؤون المالية فقط</div>;
 
@@ -146,7 +139,7 @@ function FinanceInstallments() {
               <Label>الفصل / المرحلة</Label>
               <select className="w-full rounded-md border bg-background p-2 text-sm outline-none" value={grade} onChange={(e) => setGrade(e.target.value)}>
                 <option value="">اختر الفصل أو المرحلة</option>
-                {(gradeRows ?? []).map((g) => <option key={g.name} value={g.name}>{g.name}</option>)}
+                {(gradeRows ?? []).map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
               </select>
             </div>
             <div className="flex-1 min-w-48">
