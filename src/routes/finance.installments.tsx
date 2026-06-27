@@ -33,6 +33,15 @@ function FinanceInstallments() {
   const [tpl, setTpl] = useState({ first_installment: "", second_installment: "", previous_installments: "", other_fees: "", activity_fees: "", education_fees: "" });
   const [saving, setSaving] = useState(false);
 
+  const { data: gradeRows } = useQuery({
+    queryKey: ["finance-installment-grades"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("grades").select("name").order("name");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
   const { data, refetch } = useQuery({
     queryKey: ["finance-students", q, grade],
     queryFn: async () => {
@@ -137,7 +146,7 @@ function FinanceInstallments() {
               <Label>الفصل / المرحلة</Label>
               <select className="w-full rounded-md border bg-background p-2 text-sm outline-none" value={grade} onChange={(e) => setGrade(e.target.value)}>
                 <option value="">اختر الفصل أو المرحلة</option>
-                {grades.map((g) => <option key={g} value={g}>{g}</option>)}
+                {(gradeRows ?? []).map((g) => <option key={g.name} value={g.name}>{g.name}</option>)}
               </select>
             </div>
             <div className="flex-1 min-w-48">
