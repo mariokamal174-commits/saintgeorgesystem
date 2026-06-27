@@ -22,6 +22,7 @@ void Outlet;
 
 type S = { id: string; full_name: string; student_code: string | null; grade_name: string | null;
   first_installment: number; second_installment: number; previous_installments: number; other_fees: number;
+  activity_fees: number; education_fees: number;
   total_due: number | null; total_paid: number; payment_status: string; archived_year: string | null };
 
 function FinanceInstallments() {
@@ -29,13 +30,13 @@ function FinanceInstallments() {
   const [q, setQ] = useState("");
   const [grade, setGrade] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [tpl, setTpl] = useState({ first_installment: "", second_installment: "", previous_installments: "", other_fees: "" });
+  const [tpl, setTpl] = useState({ first_installment: "", second_installment: "", previous_installments: "", other_fees: "", activity_fees: "", education_fees: "" });
   const [saving, setSaving] = useState(false);
 
   const { data, refetch } = useQuery({
     queryKey: ["finance-students", q, grade],
     queryFn: async () => {
-      let qb = supabase.from("students").select("id,full_name,student_code,first_installment,second_installment,previous_installments,other_fees,total_due,total_paid,payment_status,archived_year,grades(name)").is("archived_year", null).order("full_name").limit(500);
+      let qb = supabase.from("students").select("id,full_name,student_code,first_installment,second_installment,previous_installments,other_fees,activity_fees,education_fees,total_due,total_paid,payment_status,archived_year,grades(name)").is("archived_year", null).order("full_name").limit(500);
       if (q) qb = qb.ilike("full_name", `%${q}%`);
       const { data, error } = await qb;
       if (error) throw error;
@@ -44,6 +45,7 @@ function FinanceInstallments() {
         grade_name: ((r.grades as { name?: string } | null)?.name ?? null),
         first_installment: Number(r.first_installment) || 0, second_installment: Number(r.second_installment) || 0,
         previous_installments: Number(r.previous_installments) || 0, other_fees: Number(r.other_fees) || 0,
+        activity_fees: Number(r.activity_fees) || 0, education_fees: Number(r.education_fees) || 0,
         total_due: r.total_due as number | null, total_paid: Number(r.total_paid) || 0,
         payment_status: r.payment_status as string, archived_year: r.archived_year as string | null,
       }));
@@ -85,11 +87,13 @@ function FinanceInstallments() {
   async function applyTemplate() {
     if (selected.size === 0) return toast.error("اختر طلاب أولاً");
     setSaving(true);
-    const payload: { first_installment?: number; second_installment?: number; previous_installments?: number; other_fees?: number } = {};
+    const payload: { first_installment?: number; second_installment?: number; previous_installments?: number; other_fees?: number; activity_fees?: number; education_fees?: number } = {};
     if (tpl.first_installment !== "") payload.first_installment = Number(tpl.first_installment) || 0;
     if (tpl.second_installment !== "") payload.second_installment = Number(tpl.second_installment) || 0;
     if (tpl.previous_installments !== "") payload.previous_installments = Number(tpl.previous_installments) || 0;
     if (tpl.other_fees !== "") payload.other_fees = Number(tpl.other_fees) || 0;
+    if (tpl.activity_fees !== "") payload.activity_fees = Number(tpl.activity_fees) || 0;
+    if (tpl.education_fees !== "") payload.education_fees = Number(tpl.education_fees) || 0;
     if (Object.keys(payload).length === 0) { setSaving(false); return toast.error("أدخل قيمة واحدة على الأقل"); }
     const { error } = await supabase.from("students").update(payload).in("id", Array.from(selected));
     setSaving(false);
@@ -103,6 +107,7 @@ function FinanceInstallments() {
     const { error } = await supabase.from("students").update({
       first_installment: s.first_installment, second_installment: s.second_installment,
       previous_installments: s.previous_installments, other_fees: s.other_fees,
+      education_fees: s.education_fees, activity_fees: s.activity_fees,
     }).eq("id", s.id);
     if (error) return toast.error(error.message);
     toast.success("تم الحفظ");
@@ -119,11 +124,13 @@ function FinanceInstallments() {
       <Card>
         <CardHeader><CardTitle>تطبيق قيم على فصل أو دفعة طلاب</CardTitle></CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
             <div><Label>القسط الأول</Label><Input type="number" value={tpl.first_installment} onChange={(e) => setTpl({ ...tpl, first_installment: e.target.value })} /></div>
             <div><Label>القسط الثاني</Label><Input type="number" value={tpl.second_installment} onChange={(e) => setTpl({ ...tpl, second_installment: e.target.value })} /></div>
             <div><Label>أقساط سابقة</Label><Input type="number" value={tpl.previous_installments} onChange={(e) => setTpl({ ...tpl, previous_installments: e.target.value })} /></div>
             <div><Label>رسوم أخرى</Label><Input type="number" value={tpl.other_fees} onChange={(e) => setTpl({ ...tpl, other_fees: e.target.value })} /></div>
+            <div><Label>رسوم التعليم</Label><Input type="number" value={tpl.education_fees} onChange={(e) => setTpl({ ...tpl, education_fees: e.target.value })} /></div>
+            <div><Label>رسوم النشاط</Label><Input type="number" value={tpl.activity_fees} onChange={(e) => setTpl({ ...tpl, activity_fees: e.target.value })} /></div>
           </div>
           <div className="flex flex-wrap gap-2 items-end">
             <div className="flex-1 min-w-48">
@@ -156,6 +163,8 @@ function FinanceInstallments() {
                   <th className="px-2 py-2 text-right">قسط 2</th>
                   <th className="px-2 py-2 text-right">سابقة</th>
                   <th className="px-2 py-2 text-right">أخرى</th>
+                  <th className="px-2 py-2 text-right">تعليم</th>
+                  <th className="px-2 py-2 text-right">نشاط</th>
                   <th className="px-2 py-2 text-right">إجمالي</th>
                   <th className="px-2 py-2 text-right">حفظ</th>
                 </tr>
@@ -177,7 +186,7 @@ function FinanceInstallments() {
 function Row({ s, selected, onToggle, onSave }: { s: S; selected: boolean; onToggle: () => void; onSave: (s: S) => void }) {
   const [r, setR] = useState(s);
   const upd = (k: keyof S) => (e: React.ChangeEvent<HTMLInputElement>) => setR({ ...r, [k]: Number(e.target.value) || 0 });
-  const total = (r.first_installment || 0) + (r.second_installment || 0) + (r.previous_installments || 0) + (r.other_fees || 0);
+  const total = (r.first_installment || 0) + (r.second_installment || 0) + (r.previous_installments || 0) + (r.other_fees || 0) + (r.education_fees || 0) + (r.activity_fees || 0);
   return (
     <tr className="border-t">
       <td className="px-2 py-1.5"><Checkbox checked={selected} onCheckedChange={onToggle} /></td>
@@ -187,6 +196,8 @@ function Row({ s, selected, onToggle, onSave }: { s: S; selected: boolean; onTog
       <td className="px-2 py-1.5"><Input type="number" className="h-8 w-24" value={r.second_installment} onChange={upd("second_installment")} /></td>
       <td className="px-2 py-1.5"><Input type="number" className="h-8 w-24" value={r.previous_installments} onChange={upd("previous_installments")} /></td>
       <td className="px-2 py-1.5"><Input type="number" className="h-8 w-24" value={r.other_fees} onChange={upd("other_fees")} /></td>
+      <td className="px-2 py-1.5"><Input type="number" className="h-8 w-24" value={r.education_fees} onChange={upd("education_fees")} /></td>
+      <td className="px-2 py-1.5"><Input type="number" className="h-8 w-24" value={r.activity_fees} onChange={upd("activity_fees")} /></td>
       <td className="px-2 py-1.5 font-bold">{new Intl.NumberFormat("ar-EG").format(total)}</td>
       <td className="px-2 py-1.5"><Button size="sm" variant="outline" onClick={() => onSave(r)}>حفظ</Button></td>
     </tr>
