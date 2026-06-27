@@ -45,12 +45,17 @@ function FinanceInstallments() {
   const { data, refetch } = useQuery({
     queryKey: ["finance-students", q, grade],
     queryFn: async () => {
-      let qb = supabase.from("students").select("id,full_name,student_code,grade_id,first_installment,second_installment,previous_installments,other_fees,activity_fees,education_fees,total_due,total_paid,payment_status,archived_year,grades(name)").is("archived_year", null).order("full_name").limit(500);
-      if (q) qb = qb.ilike("full_name", `%${q}%`);
-      if (grade) qb = qb.eq("grade_id", grade);
-      const { data, error } = await qb;
-      if (error) throw error;
-      const rows: S[] = ((data as any) ?? []).map((r: any) => ({
+      const columns = "id,full_name,student_code,grade_id,first_installment,second_installment,previous_installments,other_fees,activity_fees,education_fees,total_due,total_paid,payment_status,archived_year,grades(name)";
+      const fallbackColumns = "id,full_name,student_code,grade_id,first_installment,second_installment,previous_installments,other_fees,total_due,total_paid,payment_status,archived_year,grades(name)";
+
+      const buildQuery = (selectCols: string) => {
+        let qb = supabase.from("students").select(selectCols).is("archived_year", null).order("full_name").limit(500);
+        if (q) qb = qb.ilike("full_name", `%${q}%`);
+        if (grade) qb = qb.eq("grade_id", grade);
+        return qb;
+      };
+
+      const mapRows = (data: any): S[] => ((data ?? []) as any[]).map((r) => ({
         id: r.id as string,
         full_name: r.full_name as string,
         student_code: (r.student_code as string | null) ?? null,
@@ -66,7 +71,18 @@ function FinanceInstallments() {
         payment_status: r.payment_status as string,
         archived_year: r.archived_year as string | null,
       }));
-      return rows;
+
+      const { data: studentData, error } = await buildQuery(columns);
+      if (error) {
+        if (/activity_fees|education_fees/i.test(error.message ?? "")) {
+          const { data: fallbackData, error: fallbackError } = await buildQuery(fallbackColumns);
+          if (fallbackError) throw fallbackError;
+          return mapRows(fallbackData);
+        }
+        throw error;
+      }
+
+      return mapRows(studentData);
     },
   });
 
