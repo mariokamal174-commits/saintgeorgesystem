@@ -135,8 +135,10 @@ function FinanceInstallments() {
           <div className="flex flex-wrap gap-2 items-end">
             <div className="flex-1 min-w-48">
               <Label>الفصل / المرحلة</Label>
-              <Input list="grade-list" placeholder="مثال: الصف الأول" value={grade} onChange={(e) => setGrade(e.target.value)} />
-              <datalist id="grade-list">{grades.map(g => <option key={g} value={g} />)}</datalist>
+              <select className="w-full rounded-md border bg-background p-2 text-sm outline-none" value={grade} onChange={(e) => setGrade(e.target.value)}>
+                <option value="">اختر الفصل أو المرحلة</option>
+                {grades.map((g) => <option key={g} value={g}>{g}</option>)}
+              </select>
             </div>
             <div className="flex-1 min-w-48">
               <Label>بحث بالاسم</Label>
