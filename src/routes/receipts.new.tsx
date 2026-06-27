@@ -51,6 +51,7 @@ function NewReceipt() {
     payer_name: "",
   });
   const [studentQuery, setStudentQuery] = useState("");
+  const [selectOpen, setSelectOpen] = useState(false);
 
   const selectedStudent = students.find((s) => s.id === form.student_id);
   const studentOptions = useMemo(() => {
@@ -171,13 +172,21 @@ function NewReceipt() {
               <Label>ابحث باسم الطالب أو الكود</Label>
               <Input
                 value={studentQuery}
-                onChange={(e) => setStudentQuery(e.target.value)}
+                onChange={(e) => {
+                  setStudentQuery(e.target.value);
+                  setSelectOpen(true);
+                }}
                 placeholder="ابحث عن طالب..."
               />
             </div>
             <div className="space-y-2">
               <Label>الطالب *</Label>
-              <Select value={form.student_id} onValueChange={(v) => setForm({ ...form, student_id: v })}>
+              <Select
+                value={form.student_id}
+                onValueChange={(v) => setForm({ ...form, student_id: v })}
+                open={selectOpen}
+                onOpenChange={setSelectOpen}
+              >
                 <SelectTrigger><SelectValue placeholder="اختر الطالب" /></SelectTrigger>
                 <SelectContent>
                   {studentOptions.map(s => (
