@@ -78,6 +78,8 @@ function StudentDetail() {
   const activityFees = data.receipts.reduce((sum, r) => sum + Number(r.activity_fees ?? 0), 0);
   const educationFees = data.receipts.reduce((sum, r) => sum + Number(r.education_fees ?? 0), 0);
   const feesInFirstInstallment = activityFees + educationFees;
+  const allInstallmentsPaid = data.installments.length > 0 && data.installments.every((i) => i.status === "paid" || Number(i.amount) === 0);
+  const effectivePaid = s.payment_status === "paid" || allInstallmentsPaid;
   const installmentStatus = (label: string) => {
     const match = data.installments.find((i) => i.label === label);
     return match ? match.status : undefined;
@@ -193,11 +195,11 @@ function StudentDetail() {
         <Card><CardContent className="p-4">
           <div className="text-sm text-muted-foreground mb-2">الحالة</div>
           <div className="flex items-center justify-between gap-3">
-            {s.payment_status === "paid"
+            {effectivePaid
               ? <Badge className="bg-success text-success-foreground text-base">مسدد بالكامل</Badge>
               : <Badge variant="destructive" className="text-base">غير مسدد</Badge>}
             {canEditInstallments && (
-              <Switch checked={s.payment_status === "paid"} disabled={savingPayment} onCheckedChange={setStudentPaid} aria-label="تغيير حالة السداد" />
+              <Switch checked={effectivePaid} disabled={savingPayment} onCheckedChange={setStudentPaid} aria-label="تغيير حالة السداد" />
             )}
           </div>
         </CardContent></Card>
