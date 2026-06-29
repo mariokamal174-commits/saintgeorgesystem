@@ -573,11 +573,7 @@ function StudentDetail() {
                 <div className="border-t pt-4">
                   <p className="text-sm text-muted-foreground mb-3">صورة الإيصال</p>
                   <div className="max-h-96 overflow-auto rounded-md border">
-                    <img
-                      src={`${process.env.VITE_SUPABASE_URL}/storage/v1/object/public/receipt-images/${selectedReceipt.image_url}`}
-                      alt="صورة الإيصال"
-                      className="w-full h-auto"
-                    />
+                    <ReceiptImage imageUrl={selectedReceipt.image_url} />
                   </div>
                 </div>
               )}
@@ -716,4 +712,37 @@ function Row({ label, value, status }: { label: string; value: string; status?: 
       </span>
     ) : null}
   </span><span>{value}</span></div>;
+}
+
+function ReceiptImage({ imageUrl }: { imageUrl: string }) {
+  const [src, setSrc] = useState<string | null>(null);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      // Try signed URL first (works for private buckets)
+      const { data, error: signError } = await supabase.storage
+        .from("receipt-images")
+        .createSignedUrl(imageUrl, 3600); // 1 hour expiry
+      if (cancelled) return;
+      if (signError || !data?.signedUrl) {
+        // Fallback: try public URL
+        const { data: pubData } = supabase.storage
+          .from("receipt-images")
+          .getPublicUrl(imageUrl);
+        if (!cancelled) {
+          setSrc(pubData?.publicUrl ?? null);
+        }
+      } else {
+        setSrc(data.signedUrl);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [imageUrl]);
+
+  if (error) return <p className="text-sm text-muted-foreground p-4 text-center">تعذر تحميل صورة الإيصال</p>;
+  if (!src) return <p className="text-sm text-muted-foreground p-4 text-center">جاري تحميل الصورة...</p>;
+  return <img src={src} alt="صورة الإيصال" className="w-full h-auto" onError={() => setError(true)} />;
 }
