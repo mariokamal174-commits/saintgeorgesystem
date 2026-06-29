@@ -86,10 +86,11 @@ function FinanceImportFees() {
 
       for (const fee of fees) {
         // البحث عن الـ grade
+        const searchName = fee.grade_name.trim().toLowerCase() === "g1" ? "Grade 1" : fee.grade_name;
         const { data: gradeData } = await supabase
           .from("grades")
           .select("id")
-          .ilike("name", `%${fee.grade_name}%`)
+          .ilike("name", `%${searchName}%`)
           .maybeSingle();
 
         if (!gradeData) {
