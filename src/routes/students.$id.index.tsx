@@ -85,7 +85,7 @@ function StudentDetail() {
   const fmt = (n: number) => new Intl.NumberFormat("ar-EG").format(Math.round(n));
   const activityFees = data.receipts.reduce((sum, r) => sum + Number(r.activity_fees ?? 0), 0);
   const allInstallmentsPaid = data.installments.length > 0 && data.installments.every((i) => i.status === "paid" || Number(i.amount) === 0);
-  const effectivePaid = s.payment_status === "paid" || allInstallmentsPaid;
+  const effectivePaid = s.payment_status === "paid" || allInstallmentsPaid || (Number(s.total_paid) >= Number(s.total_due) && Number(s.total_due) > 0);
   const installmentStatus = (label: string) => {
     const match = data.installments.find((i) => i.label === label);
     return match ? match.status : undefined;
@@ -320,7 +320,7 @@ function StudentDetail() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <StatCard label="إجمالي المستحق" value={fmt(Number(s.total_due))} />
         <StatCard label="إجمالي المدفوع" value={fmt(Number(s.total_paid))} tone="success" />
-        <StatCard label="المتبقي" value={fmt(Number(s.remaining_balance))} tone={Number(s.remaining_balance) > 0 ? "warning" : "success"} />
+        <StatCard label="المتبقي" value={fmt(Math.max(Number(s.remaining_balance), 0))} tone={Number(s.remaining_balance) > 0 ? "warning" : "success"} />
         <Card><CardContent className="p-4">
           <div className="text-sm text-muted-foreground mb-2">الحالة</div>
           <div className="flex items-center justify-between gap-3">
