@@ -48,6 +48,7 @@ function StudentDetail() {
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [resetPassword, setResetPassword] = useState("");
   const [resettingData, setResettingData] = useState(false);
+  const [recomputing, setRecomputing] = useState(false);
 
   const { data, refetch } = useQuery({
     queryKey: ["student", id],
@@ -154,6 +155,20 @@ function StudentDetail() {
   function handlePaymentStatusClick(nextPaid: boolean) {
     setPendingPaymentChange(nextPaid);
     setPaymentDialogOpen(true);
+  }
+
+  async function recomputeBalance() {
+    setRecomputing(true);
+    try {
+      const { error } = await supabase.rpc("recompute_student_totals", { _student_id: id });
+      if (error) throw error;
+      toast.success("تم تحديث الرصيد بنجاح");
+      refetch();
+    } catch (err: any) {
+      toast.error(err?.message || "فشل تحديث الرصيد");
+    } finally {
+      setRecomputing(false);
+    }
   }
 
   async function resetAllFinancialData() {
@@ -298,6 +313,17 @@ function StudentDetail() {
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
+          )}
+          {(isFinance || isAdmin) && (
+            <Button
+              variant="outline"
+              className="border-blue-300 hover:bg-blue-50 text-blue-700"
+              onClick={recomputeBalance}
+              disabled={recomputing}
+            >
+              <RotateCcw className={`ml-2 h-4 w-4 ${recomputing ? 'animate-spin' : ''}`} />
+              {recomputing ? "جاري..." : "تحديث الرصيد"}
+            </Button>
           )}
           {(isFinance || isAdmin) && (
             <Button

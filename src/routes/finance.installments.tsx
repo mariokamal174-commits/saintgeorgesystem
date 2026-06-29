@@ -39,6 +39,7 @@ function FinanceInstallments() {
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [resetPassword, setResetPassword] = useState("");
   const [resettingData, setResettingData] = useState(false);
+  const [recomputing, setRecomputing] = useState(false);
 
   const { data: gradeRows } = useQuery({
     queryKey: ["finance-installment-grades"],
@@ -191,6 +192,20 @@ function FinanceInstallments() {
     }
   }
 
+  async function recomputeAllBalances() {
+    setRecomputing(true);
+    try {
+      const { error } = await supabase.rpc("recompute_all_student_totals");
+      if (error) throw error;
+      toast.success("تم إعادة حساب أرصدة جميع الطلاب بنجاح");
+      refetch();
+    } catch (err: any) {
+      toast.error(err?.message || "فشل إعادة الحساب");
+    } finally {
+      setRecomputing(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -205,6 +220,17 @@ function FinanceInstallments() {
           <Link to="/finance/receipt-upload">
             <Button><Upload className="ml-2 h-4 w-4" />رفع إيصالات</Button>
           </Link>
+          {(isFinance || isAdmin) && (
+            <Button
+              variant="outline"
+              className="border-blue-300 hover:bg-blue-50 text-blue-700"
+              onClick={recomputeAllBalances}
+              disabled={recomputing}
+            >
+              <RotateCcw className={`ml-2 h-4 w-4 ${recomputing ? 'animate-spin' : ''}`} />
+              {recomputing ? "جاري الحساب..." : "إعادة حساب الأرصدة"}
+            </Button>
+          )}
           {(isFinance || isAdmin) && (
             <Button
               variant="outline"
