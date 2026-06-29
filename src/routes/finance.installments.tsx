@@ -150,22 +150,29 @@ function FinanceInstallments() {
     setResettingData(true);
     try {
       // حذف جميع الإيصالات
-      const { error: receiptError } = await supabase.from("receipts").delete().gt("id", "");
+      const { error: receiptError } = await supabase.from("receipts").delete().not("id", "is", null);
       if (receiptError) throw receiptError;
 
       // حذف جميع الأقساط
-      const { error: installmentError } = await supabase.from("installments").delete().gt("id", "");
+      const { error: installmentError } = await supabase.from("installments").delete().not("id", "is", null);
       if (installmentError) throw installmentError;
 
       // إعادة تعيين بيانات جميع الطلاب
-      const { error: resetError } = await supabase.from("students").update({
+      const updatePayload: Record<string, any> = {
         first_installment: 0,
         second_installment: 0,
         previous_installments: 0,
         other_fees: 0,
-        activity_fees: 0,
         payment_status: "unpaid"
-      }).gt("id", "");
+      };
+
+      if (supportsStudentFeeColumns) {
+        updatePayload.activity_fees = 0;
+        updatePayload.education_fees = 0;
+        updatePayload.golden_batch_fees = 0;
+      }
+
+      const { error: resetError } = await supabase.from("students").update(updatePayload).not("id", "is", null);
       if (resetError) throw resetError;
 
       // تسجيل النشاط
@@ -176,8 +183,9 @@ function FinanceInstallments() {
       setResetPassword("");
       setResetWarningOpen(false);
       refetch();
-    } catch (error) {
-      toast.error("حدث خطأ: " + (error instanceof Error ? error.message : "فشل المسح"));
+    } catch (error: any) {
+      const msg = error?.message || (typeof error === "string" ? error : "فشل المسح");
+      toast.error("حدث خطأ: " + msg);
     } finally {
       setResettingData(false);
     }
@@ -197,7 +205,7 @@ function FinanceInstallments() {
           <Link to="/finance/receipt-upload">
             <Button><Upload className="ml-2 h-4 w-4" />رفع إيصالات</Button>
           </Link>
-          {(isFinance || isAdmin) && (
+          {isAdmin && (
             <Button
               variant="outline"
               className="border-red-300 hover:bg-red-50 text-red-700"
