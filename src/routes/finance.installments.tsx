@@ -205,7 +205,7 @@ function FinanceInstallments() {
           <Link to="/finance/receipt-upload">
             <Button><Upload className="ml-2 h-4 w-4" />رفع إيصالات</Button>
           </Link>
-          {isAdmin && (
+          {(isFinance || isAdmin) && (
             <Button
               variant="outline"
               className="border-red-300 hover:bg-red-50 text-red-700"
