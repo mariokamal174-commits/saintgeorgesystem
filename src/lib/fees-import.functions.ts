@@ -1,13 +1,16 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import * as XLSX from "xlsx";
+import * as ExcelJS from "exceljs";
 
 interface FeesData {
   grade_name: string;
   first_installment: number;
   second_installment: number;
   golden_batch_fees: number;
-  other_fees?: number;
+  golden_first_installment?: number;
+  golden_second_installment?: number;
+  red_text_student_names?: string[];
 }
 
 export const importFeesFromExcel = createServerFn({ method: "POST" })
@@ -25,12 +28,20 @@ export const importFeesFromExcel = createServerFn({ method: "POST" })
       // قراءة الملف
       const workbook = XLSX.read(binaryString, { type: "binary" });
       
+      // قراءة الألوان باستخدام exceljs
+      const buffer = Buffer.from(data.fileBase64, "base64");
+      const excelWorkbook = new ExcelJS.Workbook();
+      await excelWorkbook.xlsx.load(buffer);
+      
       const fees: FeesData[] = [];
       
       // معالجة كل ورقة في المصنف
       for (const sheetName of workbook.SheetNames) {
         const worksheet = workbook.Sheets[sheetName];
         const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" }) as (string | number)[][];
+        
+        // الحصول على ورقة exceljs المقابلة للقراءة بالألوان
+        const excelSheet = excelWorkbook.getWorksheet(sheetName);
         
         if (!jsonData || jsonData.length < 2) continue;
         
@@ -51,8 +62,10 @@ export const importFeesFromExcel = createServerFn({ method: "POST" })
         let firstInstall = 0;
         let secondInstall = 0;
         let goldenBatch = 0;
+        let goldenFirst = 0;
+        let goldenSecond = 0;
         
-        // قسط أول (مع معالجة الصيغ المختلفة)
+        // قسط أول
         const firstMatch = firstRowText.match(/قسط\s*(?:اول|أول|اولى|أولى|اوله|أوله)\s*[:\-\s]*(\d+)/i);
         if (firstMatch) firstInstall = parseFloat(firstMatch[1]) || 0;
         
@@ -60,9 +73,51 @@ export const importFeesFromExcel = createServerFn({ method: "POST" })
         const secondMatch = firstRowText.match(/قسط\s*(?:تاني|ثاني|تانى|ثانى|تانية|ثانية)\s*[:\-\s]*(\d+)/i);
         if (secondMatch) secondInstall = parseFloat(secondMatch[1]) || 0;
         
-        // دفعة ذهبية / إجمالي (الاجمالى هو الدفعة الذهبية)
-        const goldenMatch = firstRowText.match(/(?:اجمال|إجمال|دفعة\s*ذهب|ذهبية)\s*[:\-\s]*(\d+)/i);
-        if (goldenMatch) goldenBatch = parseFloat(goldenMatch[1]) || 0;
+        // دفعة ذهبية - البحث عن كل الأرقام بعد كلمة "دفعة ذهبية"
+        let goldenNumbers: number[] = [];
+        const goldenSection = firstRowText.match(/(?:الدفعة|دفعة)\s*ذهبي[ة|][\s\D]*?(\d+)[\s\D]*?(\d+)[\s\D]*?(\d+)?/i);
+        if (goldenSection) {
+          goldenNumbers = [
+            parseFloat(goldenSection[1]) || 0,
+            parseFloat(goldenSection[2]) || 0,
+            parseFloat(goldenSection[3]) || 0
+          ];
+          if (goldenNumbers[0] > 0) goldenBatch = goldenNumbers[0];
+          if (goldenNumbers[1] > 0) goldenFirst = goldenNumbers[1];
+          if (goldenNumbers[2] > 0) goldenSecond = goldenNumbers[2];
+        }
+        
+        // إذا لم نجد أقساط الدفعة الذهبية، حاول البحث المباشر
+        if (goldenBatch > 0 && goldenFirst === 0) {
+          const goldenFirstDirect = firstRowText.match(/(?:الدفعة|دفعة)\s*ذهبي[ة|][\s\D]*?قسط\s*(?:أول|اول|اولى|أولى)\s*[:\-\s]*(\d+)/i);
+          if (goldenFirstDirect) goldenFirst = parseFloat(goldenFirstDirect[1]) || 0;
+          
+          const goldenSecondDirect = firstRowText.match(/(?:الدفعة|دفعة)\s*ذهبي[ة|][\s\D]*?قسط\s*(?:ثاني|تاني|ثانى|تانى|ثانية|تانية)\s*[:\-\s]*(\d+)/i);
+          if (goldenSecondDirect) goldenSecond = parseFloat(goldenSecondDirect[1]) || 0;
+        }
+        
+        // البحث عن أسماء الطلاب باللون الأحمر
+        const redTextStudents: string[] = [];
+        if (excelSheet) {
+          // البحث في الصفوف عن خلايا بأسماء باللون الأحمر (في العمود الثاني عادة)
+          excelSheet.eachRow((row, rowNumber) => {
+            if (rowNumber <= 1) return; // تخطي الصفوف الأولى (headers)
+            
+            const nameCell = row.getCell(2); // العمود الثاني عادة يحتوي على الاسم
+            if (nameCell && nameCell.value) {
+              const fontColor = nameCell.font?.color;
+              // تحقق من اللون الأحمر (FF0000 أو معرّفات أخرى للأحمر)
+              if (fontColor && typeof fontColor === 'object' && 'argb' in fontColor) {
+                const color = String(fontColor.argb).toUpperCase();
+                if (color === 'FFFF0000' || color === 'FF0000' || color.includes('FF0000')) {
+                  redTextStudents.push(String(nameCell.value));
+                }
+              } else if (fontColor === 'FF0000' || fontColor === 'FF') {
+                redTextStudents.push(String(nameCell.value));
+              }
+            }
+          });
+        }
         
         // إذا وجدنا رسوم، أضفها
         if (firstInstall > 0 || secondInstall > 0 || goldenBatch > 0) {
@@ -71,6 +126,9 @@ export const importFeesFromExcel = createServerFn({ method: "POST" })
             first_installment: firstInstall,
             second_installment: secondInstall,
             golden_batch_fees: goldenBatch,
+            golden_first_installment: goldenFirst,
+            golden_second_installment: goldenSecond,
+            red_text_student_names: redTextStudents.length > 0 ? redTextStudents : undefined,
           });
         }
       }

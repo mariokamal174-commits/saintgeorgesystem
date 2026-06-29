@@ -17,6 +17,9 @@ interface FeeRow {
   first_installment: number;
   second_installment: number;
   golden_batch_fees: number;
+  golden_first_installment?: number;
+  golden_second_installment?: number;
+  red_text_student_names?: string[];
 }
 
 export const Route = createFileRoute("/finance/import-fees")({
@@ -94,16 +97,32 @@ function FinanceImportFees() {
           continue;
         }
 
-        // تحديث جميع الطلاب في هذا الفصل
+        // تحديث جميع الطلاب في هذا الفصل بالأقساط العادية
         const { error: updateError } = await supabase
           .from("students")
           .update({
             first_installment: fee.first_installment,
             second_installment: fee.second_installment,
-            golden_batch_fees: fee.golden_batch_fees,
           })
           .eq("grade_id", gradeData.id)
           .is("archived_year", null);
+
+        // إذا كانت هناك دفعة ذهبية وأسماء محددة بالأحمر، طبقها على تلك الأسماء فقط
+        if (fee.golden_batch_fees > 0 && fee.red_text_student_names && fee.red_text_student_names.length > 0) {
+          // تحديث الطلاب المحددين بالدفعة الذهبية
+          for (const studentName of fee.red_text_student_names) {
+            await supabase
+              .from("students")
+              .update({
+                golden_batch_fees: fee.golden_batch_fees,
+                first_installment: fee.golden_first_installment || fee.first_installment,
+                second_installment: fee.golden_second_installment || fee.second_installment,
+              })
+              .eq("grade_id", gradeData.id)
+              .ilike("name", `%${studentName.trim()}%`)
+              .is("archived_year", null);
+          }
+        }
 
         if (!updateError) {
           successCount++;
@@ -209,22 +228,48 @@ function FinanceImportFees() {
                     <th className="px-4 py-2 text-right">القسط الأول</th>
                     <th className="px-4 py-2 text-right">القسط الثاني</th>
                     <th className="px-4 py-2 text-right">الدفعة الذهبية</th>
+                    <th className="px-4 py-2 text-right">قسط ذهبي أول</th>
+                    <th className="px-4 py-2 text-right">قسط ذهبي ثاني</th>
                   </tr>
                 </thead>
                 <tbody>
                   {fees.map((fee, idx) => (
-                    <tr key={idx} className="border-t hover:bg-muted/50">
-                      <td className="px-4 py-2 font-medium">{fee.grade_name}</td>
-                      <td className="px-4 py-2">{fmt(fee.first_installment)}</td>
-                      <td className="px-4 py-2">{fmt(fee.second_installment)}</td>
-                      <td className="px-4 py-2">
-                        {fee.golden_batch_fees > 0 ? (
-                          <Badge variant="destructive">{fmt(fee.golden_batch_fees)}</Badge>
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </td>
-                    </tr>
+                    <>
+                      <tr key={idx} className="border-t hover:bg-muted/50">
+                        <td className="px-4 py-2 font-medium">{fee.grade_name}</td>
+                        <td className="px-4 py-2">{fmt(fee.first_installment)}</td>
+                        <td className="px-4 py-2">{fmt(fee.second_installment)}</td>
+                        <td className="px-4 py-2">
+                          {fee.golden_batch_fees > 0 ? (
+                            <Badge variant="destructive">{fmt(fee.golden_batch_fees)}</Badge>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-2">
+                          {fee.golden_first_installment ? fmt(fee.golden_first_installment) : "—"}
+                        </td>
+                        <td className="px-4 py-2">
+                          {fee.golden_second_installment ? fmt(fee.golden_second_installment) : "—"}
+                        </td>
+                      </tr>
+                      {fee.red_text_student_names && fee.red_text_student_names.length > 0 && (
+                        <tr className="bg-red-50 border-t">
+                          <td colSpan={6} className="px-4 py-3">
+                            <div>
+                              <p className="text-sm font-semibold text-red-900 mb-2">👥 الطلاب باللون الأحمر (يطبق عليهم الدفعة الذهبية):</p>
+                              <div className="flex flex-wrap gap-2">
+                                {fee.red_text_student_names.map((name, idx) => (
+                                  <Badge key={idx} variant="outline" className="text-red-700 border-red-300">
+                                    {name}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </>
                   ))}
                 </tbody>
               </table>
