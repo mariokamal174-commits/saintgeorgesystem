@@ -27,68 +27,99 @@ export const importFeesFromExcel = createServerFn({ method: "POST" })
       const sheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[sheetName];
       
-      // قراءة البيانات
+      // قراءة كل البيانات
       const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as (string | number)[][];
       
       const fees: FeesData[] = [];
       
-      // المسح عبر الصفوف - البيانات من فوق مباشرة
-      for (let i = 0; i < Math.min(50, jsonData.length); i++) {
+      // تسطيح جميع الخلايا إلى نص واحد لتحليله
+      const allText: string[] = [];
+      for (let i = 0; i < jsonData.length; i++) {
         const row = jsonData[i];
-        if (!row || row.length === 0) continue;
-        
-        // البحث عن اسم الفصل (Grade, G1, 10, 11، إلخ)
-        let gradeName = "";
-        let firstInstall = 0;
-        let secondInstall = 0;
-        let goldenBatch = 0;
-        
-        // البحث عن كلمات تدل على الفصل
-        for (let j = 0; j < row.length; j++) {
-          const cell = String(row[j] || "").trim();
-          const cellLower = cell.toLowerCase();
-          
-          // ابحث عن كلمة "فصل" أو "grade" أو حرف واحد مع رقم
-          if (cellLower.includes("grade") || 
-              cellLower.match(/^g\d+$/i) ||
-              cell.match(/^\d+$/) && parseInt(cell) >= 10 && parseInt(cell) <= 21) {
-            gradeName = cell;
-            break;
+        if (row) {
+          for (let j = 0; j < row.length; j++) {
+            const cell = String(row[j] || "").trim();
+            if (cell) allText.push(cell);
           }
         }
+      }
+      
+      // البحث عن أسماء الفصول والرسوم
+      let currentGrade = "";
+      let firstInstall = 0;
+      let secondInstall = 0;
+      let goldenBatch = 0;
+      
+      for (let i = 0; i < allText.length; i++) {
+        const cell = allText[i].toLowerCase();
+        const cellOrig = allText[i];
+        const num = parseFloat(cellOrig.replace(/[^0-9.-]/g, "")) || 0;
         
-        // إذا وجدنا الفصل، ابحث عن الرسوم في نفس الصف
-        if (gradeName) {
-          for (let j = 0; j < row.length; j++) {
-            const cell = String(row[j] || "");
-            const cellLower = cell.toLowerCase();
-            const num = parseFloat(cell.replace(/[^0-9.-]/g, "")) || 0;
-            
-            // ابحث عن كلمات الرسوم وأرقامها
-            if (num > 1000) {
-              if (cellLower.includes("أول") || cellLower.includes("first")) {
-                firstInstall = num;
-              } else if (cellLower.includes("ثاني") || cellLower.includes("second")) {
-                secondInstall = num;
-              } else if (cellLower.includes("ذهب") || cellLower.includes("golden") || cellLower.includes("دفعة")) {
-                goldenBatch = num;
-              }
-            }
-          }
-          
-          // إذا وجدنا رسوم، أضف الصف
-          if (firstInstall > 0 || secondInstall > 0 || goldenBatch > 0) {
+        // ابحث عن اسم الفصل
+        if (cellOrig.match(/^(G|Grade)\d+$/i) || cellOrig.match(/^\d+$/) && parseInt(cellOrig) >= 10 && parseInt(cellOrig) <= 21) {
+          // إذا كان لدينا فصل سابق بيانات، حفظه
+          if (currentGrade && (firstInstall > 0 || secondInstall > 0 || goldenBatch > 0)) {
             fees.push({
-              grade_name: gradeName,
+              grade_name: currentGrade,
               first_installment: firstInstall,
               second_installment: secondInstall,
               golden_batch_fees: goldenBatch,
             });
-            
-            // انتقل للصف التالي بعد العثور على فصل صحيح
-            i += 2;
+          }
+          
+          // ابدأ بفصل جديد
+          currentGrade = cellOrig;
+          firstInstall = 0;
+          secondInstall = 0;
+          goldenBatch = 0;
+        }
+        
+        // ابحث عن رسوم القسط الأول
+        if ((cell.includes("قسط") && cell.includes("أول")) || cell.includes("first")) {
+          // الرقم قد يكون في الخلية التالية أو في نفس الخلية
+          if (num > 1000) {
+            firstInstall = num;
+          } else if (i + 1 < allText.length) {
+            const nextNum = parseFloat(allText[i + 1].replace(/[^0-9.-]/g, "")) || 0;
+            if (nextNum > 1000) {
+              firstInstall = nextNum;
+            }
           }
         }
+        
+        // ابحث عن رسوم القسط الثاني
+        if ((cell.includes("قسط") && cell.includes("ثاني")) || cell.includes("second")) {
+          if (num > 1000) {
+            secondInstall = num;
+          } else if (i + 1 < allText.length) {
+            const nextNum = parseFloat(allText[i + 1].replace(/[^0-9.-]/g, "")) || 0;
+            if (nextNum > 1000) {
+              secondInstall = nextNum;
+            }
+          }
+        }
+        
+        // ابحث عن الدفعة الذهبية
+        if ((cell.includes("ذهب") || cell.includes("دفعة") || cell.includes("golden")) && !cell.includes("قسط")) {
+          if (num > 1000) {
+            goldenBatch = num;
+          } else if (i + 1 < allText.length) {
+            const nextNum = parseFloat(allText[i + 1].replace(/[^0-9.-]/g, "")) || 0;
+            if (nextNum > 1000) {
+              goldenBatch = nextNum;
+            }
+          }
+        }
+      }
+      
+      // أضف آخر فصل
+      if (currentGrade && (firstInstall > 0 || secondInstall > 0 || goldenBatch > 0)) {
+        fees.push({
+          grade_name: currentGrade,
+          first_installment: firstInstall,
+          second_installment: secondInstall,
+          golden_batch_fees: goldenBatch,
+        });
       }
       
       if (fees.length === 0) {
