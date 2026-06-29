@@ -209,7 +209,7 @@ function DangerZone() {
         setConfirmText("");
         setWipePassword("");
         const { logActivity } = await import("@/lib/audit");
-        await logActivity("delete", "bulk_wipe", null, { target: targetDesc, year: yearDesc });
+        await logActivity("حذف", "حذف_شامل", null, { target: targetDesc, year: yearDesc });
       }
     } catch (err) {
       console.error(err);

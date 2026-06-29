@@ -11,6 +11,6 @@ export async function logActivity(action: string, entity: string, entity_id?: st
       after: (after ?? null) as never,
     });
   } catch (e) {
-    console.warn("audit log failed", e);
+    console.warn("فشل تسجيل النشاط", e);
   }
 }

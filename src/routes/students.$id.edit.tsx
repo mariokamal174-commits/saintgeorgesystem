@@ -94,7 +94,7 @@ function EditStudent() {
     setLoading(false);
     if (error) return toast.error(error.message);
     const { logActivity } = await import("@/lib/audit");
-    await logActivity("update", "student", id, { full_name: payload.full_name });
+    await logActivity("تحديث", "طالب", id, { full_name: payload.full_name });
     toast.success("تم حفظ التعديلات");
     if (from === "print") {
       navigate({ to: "/students/$id/print", params: { id } });

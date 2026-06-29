@@ -1,14 +1,26 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppShell } from "@/components/app-shell";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
+import { deleteReceipt } from "@/lib/receipt.functions";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export const Route = createFileRoute("/receipts/")({
   head: () => ({ meta: [{ title: "الإيصالات" }] }),
@@ -17,6 +29,7 @@ export const Route = createFileRoute("/receipts/")({
 
 function ReceiptsList() {
   const { isFinance, isAdmin } = useAuth();
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const { data, refetch } = useQuery({
     queryKey: ["receipts"],
     queryFn: async () => {
@@ -40,6 +53,19 @@ function ReceiptsList() {
     if (error) toast.error(error.message); else toast.success(status === "approved" ? "تم اعتماد الإيصال" : "تم رفض الإيصال");
   }
 
+  async function handleDeleteReceipt(receiptId: string) {
+    try {
+      setDeletingId(receiptId);
+      const result = await deleteReceipt({ receiptId });
+      toast.success(result.message);
+      refetch();
+    } catch (error: any) {
+      toast.error(error?.message || "فشل حذف الإيصال");
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   const fmt = (n: number) => new Intl.NumberFormat("ar-EG").format(Math.round(n));
   const canManage = isFinance || isAdmin;
 
@@ -48,7 +74,7 @@ function ReceiptsList() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-3xl font-bold">الإيصالات</h1>
         {canManage && (
-          <Link to="/receipts/new"><Button><Plus className="ml-2 h-4 w-4" />إيصال جديد</Button></Link>
+          <Link to="/finance/receipt-upload"><Button><Plus className="ml-2 h-4 w-4" />إيصال جديد</Button></Link>
         )}
       </div>
       <Card>
@@ -86,7 +112,47 @@ function ReceiptsList() {
                       <div className="flex gap-2">
                         <Button size="sm" onClick={() => setStatus(r.id, "approved")}>اعتماد</Button>
                         <Button size="sm" variant="outline" onClick={() => setStatus(r.id, "rejected")}>رفض</Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button size="sm" variant="destructive" disabled={deletingId === r.id}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>حذف الإيصال؟</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                سيتم حذف الإيصال رقم {r.receipt_number ?? r.id.slice(0, 8)} للطالب {r.students?.full_name}. لا يمكن التراجع.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handleDeleteReceipt(r.id)}>حذف</AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </div>
+                    )}
+                    {canManage && r.status !== "pending" && (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button size="sm" variant="destructive" disabled={deletingId === r.id}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>حذف الإيصال؟</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              سيتم حذف الإيصال رقم {r.receipt_number ?? r.id.slice(0, 8)} للطالب {r.students?.full_name}. لا يمكن التراجع.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => handleDeleteReceipt(r.id)}>حذف</AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     )}
                   </td>
                 </tr>

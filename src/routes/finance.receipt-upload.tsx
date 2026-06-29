@@ -16,7 +16,7 @@ import { logActivity } from "@/lib/audit";
 
 interface Search { studentId?: string }
 
-type ReceiptType = "installment" | "education_fees" | "activity_fees";
+type ReceiptType = "installment" | "activity_fees";
 
 export const Route = createFileRoute("/finance/receipt-upload")({
   head: () => ({ meta: [{ title: "رفع إيصالات الأقساط والرسوم" }] }),
@@ -26,7 +26,6 @@ export const Route = createFileRoute("/finance/receipt-upload")({
 
 const RECEIPT_TYPE_LABELS: Record<ReceiptType, string> = {
   installment: "قسط",
-  education_fees: "رسوم التعليم",
   activity_fees: "رسوم النشاط",
 };
 
@@ -116,11 +115,15 @@ function FinanceReceiptUpload() {
       const r = result as Record<string, string | number | null>;
       
       setForm((prev) => {
+        const actFees = Number(r.activity_fees) || 0;
+        const eduFees = Number(r.education_fees) || 0;
+        const totalAmount = Number(r.amount) || 0;
+        const installmentAmount = totalAmount + actFees + eduFees;
         const next = {
           ...prev,
           receipt_number: r.receipt_number != null ? String(r.receipt_number) : prev.receipt_number,
           receipt_date: r.receipt_date ? String(r.receipt_date) : prev.receipt_date,
-          amount: r.amount != null ? String(r.amount) : prev.amount,
+          amount: String(installmentAmount),
           activity_fees: r.activity_fees != null ? String(r.activity_fees) : prev.activity_fees,
           education_fees: r.education_fees != null ? String(r.education_fees) : prev.education_fees,
           installment_type: (r.installment_type === "second" ? "second" : r.installment_type === "both" ? "both" : "first") as "first" | "second" | "both",
@@ -147,7 +150,7 @@ function FinanceReceiptUpload() {
       let image_url: string | null = null;
       if (imageFile) {
         const ext = imageFile.name.split(".").pop() || "jpg";
-        const typeFolder = form.receipt_type === "installment" ? "installments" : form.receipt_type === "education_fees" ? "education-fees" : "activity-fees";
+        const typeFolder = form.receipt_type === "installment" ? "installments" : "activity-fees";
         const path = `${typeFolder}/${form.student_id}/${Date.now()}.${ext}`;
         const { error: upErr } = await supabase.storage.from("receipt-images").upload(path, imageFile, { contentType: imageFile.type });
         if (upErr) throw new Error("فشل رفع الصورة: " + upErr.message);
@@ -155,12 +158,14 @@ function FinanceReceiptUpload() {
       }
 
       // حفظ الإيصال
+      const activityFees = form.receipt_type === "installment" ? (Number(form.activity_fees) || 0) : (form.receipt_type === "activity_fees" ? amt : 0);
+      const totalInstallmentAmount = form.receipt_type === "installment" ? (amt - activityFees - (Number(form.education_fees) || 0)) : (form.receipt_type === "activity_fees" ? 0 : amt);
       const payload: Record<string, unknown> = {
         student_id: form.student_id,
         receipt_number: form.receipt_number.trim(),
         receipt_date: form.receipt_date || null,
         amount: amt,
-        activity_fees: form.receipt_type === "installment" ? (Number(form.activity_fees) || 0) : 0,
+        activity_fees: activityFees,
         education_fees: form.receipt_type === "installment" ? (Number(form.education_fees) || 0) : 0,
         payer_name: form.payer_name || null,
         status: "approved",
@@ -175,29 +180,22 @@ function FinanceReceiptUpload() {
       const updatePayload: Record<string, unknown> = {};
 
       if (form.receipt_type === "installment") {
+        const activityFees = Number(form.activity_fees) || 0;
+        const educationFees = Number(form.education_fees) || 0;
+        const installmentAmount = amt - activityFees - educationFees;
+        
         if (form.installment_type === "first" || form.installment_type === "both") {
           if (form.installment_type === "both") {
             // تقسيم المبلغ بالتساوي
-            const activityFees = Number(form.activity_fees) || 0;
-            const educationFees = Number(form.education_fees) || 0;
-            const totalFees = activityFees + educationFees;
-            const remainingAmount = amt - totalFees;
-            
-            updatePayload.first_installment = remainingAmount / 2;
-            updatePayload.second_installment = remainingAmount / 2;
-            updatePayload.activity_fees = activityFees;
-            updatePayload.education_fees = educationFees;
+            updatePayload.first_installment = installmentAmount / 2 + activityFees / 2 + educationFees / 2;
+            updatePayload.second_installment = installmentAmount / 2 + activityFees / 2 + educationFees / 2;
           } else {
-            // قسط أول فقط
-            updatePayload.first_installment = amt;
-            updatePayload.activity_fees = Number(form.activity_fees) || 0;
-            updatePayload.education_fees = Number(form.education_fees) || 0;
+            // قسط أول فقط (يشمل الرسوم)
+            updatePayload.first_installment = installmentAmount + activityFees + educationFees;
           }
         } else if (form.installment_type === "second") {
-          updatePayload.second_installment = amt;
+          updatePayload.second_installment = installmentAmount + activityFees + educationFees;
         }
-      } else if (form.receipt_type === "education_fees") {
-        updatePayload.education_fees = amt;
       } else if (form.receipt_type === "activity_fees") {
         updatePayload.activity_fees = amt;
       }
@@ -214,7 +212,7 @@ function FinanceReceiptUpload() {
         ? (form.installment_type === "both" ? "الأول والثاني" : form.installment_type === "second" ? "الثاني" : "الأول")
         : "";
       
-      await logActivity("create", "receipt", receiptData?.id, {
+      await logActivity("إنشاء", "إيصال", receiptData?.id, {
         amount: amt,
         type: typeText,
         installment_info: installmentText,
@@ -289,8 +287,7 @@ function FinanceReceiptUpload() {
               <Select value={form.receipt_type} onValueChange={(v) => setForm({ ...form, receipt_type: v as ReceiptType })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="installment">قسط</SelectItem>
-                  <SelectItem value="education_fees">رسوم التعليم</SelectItem>
+                  <SelectItem value="installment">قسط (مع الرسوم)</SelectItem>
                   <SelectItem value="activity_fees">رسوم النشاط</SelectItem>
                 </SelectContent>
               </Select>

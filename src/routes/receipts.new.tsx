@@ -159,7 +159,7 @@ function NewReceipt() {
     setLoading(false);
     if (error) return toast.error(error.message);
     const studentName = students.find(s => s.id === form.student_id)?.full_name ?? "—";
-    await logActivity("create", "receipt", data?.id, {
+    await logActivity("إنشاء", "إيصال", data?.id, {
       amount: amt,
       kind: KIND_LABELS[form.kind],
       receipt_number: form.receipt_number.trim(),

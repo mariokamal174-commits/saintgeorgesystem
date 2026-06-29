@@ -13,7 +13,7 @@ export const extractReceiptData = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown): ExtractInput => {
     const i = input as ExtractInput;
-    if (!i?.imageBase64 || !i?.mimeType) throw new Error("Missing image");
+    if (!i?.imageBase64 || !i?.mimeType) throw new Error("الصورة مفقودة");
     return { 
       imageBase64: i.imageBase64, 
       mimeType: i.mimeType, 
@@ -24,7 +24,7 @@ export const extractReceiptData = createServerFn({ method: "POST" })
   })
   .handler(async ({ data }) => {
     const key = process.env.LOVABLE_API_KEY;
-    if (!key) throw new Error("Missing LOVABLE_API_KEY");
+    if (!key) throw new Error("مفتاح API مفقود");
 
     const schemaFirst = `{
   "receipt_number": "رقم الإيصال كنص",

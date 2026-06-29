@@ -17,7 +17,7 @@ export const importFeesFromExcel = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => {
     const i = input as { fileBase64: string };
-    if (!i?.fileBase64) throw new Error("Missing file");
+    if (!i?.fileBase64) throw new Error("الملف مفقود");
     return i;
   })
   .handler(async ({ data }) => {

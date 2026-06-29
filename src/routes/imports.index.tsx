@@ -729,7 +729,7 @@ function Imports() {
       } catch (err) {
         const msg = err && typeof err === "object" && "message" in err ? (err as any).message : String(err);
         toast.error(`فشل قراءة الملف: ${msg}`);
-        console.error("Error parsing Excel file:", err);
+        console.error("فشل تحليل ملف اكسيل:", err);
       }
       setParsing(false);
     },
@@ -811,7 +811,7 @@ function Imports() {
       parser_version: IMPORT_PARSER_VERSION,
     });
     const { logActivity } = await import("@/lib/audit");
-    await logActivity("import", "import", null, { inserted, updated, skipped, total: preview.rows.length });
+    await logActivity("استيراد", "بيانات_طلاب", null, { inserted, updated, skipped, total: preview.rows.length });
     setImporting(false); setPreview(null);
     toast.success(`تم: ${inserted} إضافة · ${updated} تحديث · ${skipped} تخطي`);
   }

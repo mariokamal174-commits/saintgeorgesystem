@@ -12,12 +12,29 @@ export const Route = createFileRoute("/activity/")({
 });
 
 const ACTION_LABELS: Record<string, string> = {
-  create: "إنشاء", update: "تعديل", delete: "حذف",
-  import: "استيراد", approve: "اعتماد", reject: "رفض", login: "دخول",
+  create: "إنشاء", update: "تعديل", delete: "حذف", إنشاء: "إنشاء", تحديث: "تحديث", حذف: "حذف",
+  import: "استيراد", استيراد: "استيراد",
+  approve: "اعتماد", reject: "رفض", login: "دخول",
+  "إعادة_تعيين": "إعادة تعيين",
 };
 const ENTITY_LABELS: Record<string, string> = {
-  student: "طالب", receipt: "إيصال", installment: "قسط",
-  import: "استيراد", profile: "مستخدم", delivery: "تسليم ملف",
+  student: "طالب", طالب: "طالب",
+  receipt: "إيصال", إيصال: "إيصال",
+  installment: "قسط", قسط: "قسط",
+  import: "استيراد", استيراد: "استيراد",
+  "استيراد_رسوم": "استيراد رسوم",
+  "بيانات_طلاب": "بيانات طلاب",
+  profile: "مستخدم",
+  delivery: "تسليم ملف", توصيل: "توصيل",
+  "سداد_الطالب": "سداد الطالب",
+  "بيانات_مالية_الطالب": "بيانات مالية الطالب",
+  "تحويل_الطالب": "تحويل الطالب",
+  "إلغاء_تحويل_الطالب": "إلغاء تحويل الطالب",
+  "أقساط_جماعية": "أقساط جماعية",
+  "بيانات_مالية": "بيانات مالية",
+  "حذف_شامل": "حذف شامل",
+  "أرشفة": "أرشفة",
+  طلاب: "طلاب",
 };
 const ACTION_TONE: Record<string, string> = {
   create: "bg-success/15 text-success border-success/30",

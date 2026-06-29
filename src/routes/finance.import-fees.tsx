@@ -131,7 +131,7 @@ function FinanceImportFees() {
 
       setApplying(false);
       
-      await logActivity("create", "fees_import", null, {
+      await logActivity("إنشاء", "استيراد_رسوم", null, {
         total_rows: fees.length,
         success_count: successCount,
         not_found: gradeNotFoundCount,

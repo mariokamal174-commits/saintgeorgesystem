@@ -68,7 +68,7 @@ function NewStudent() {
     setLoading(false);
     if (error) return toast.error(error.message);
     const { logActivity } = await import("@/lib/audit");
-    await logActivity("create", "student", data?.id, { full_name: parsed.data.full_name });
+    await logActivity("إنشاء", "طالب", data?.id, { full_name: parsed.data.full_name });
     toast.success("تم إضافة الطالب");
     navigate({ to: "/students" });
   }

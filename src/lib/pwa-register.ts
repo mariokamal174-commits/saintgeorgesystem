@@ -29,6 +29,6 @@ export async function registerPWA() {
     const { registerSW } = await import("virtual:pwa-register");
     registerSW({ immediate: true });
   } catch (e) {
-    console.warn("PWA register failed", e);
+    console.warn("فشل تسجيل تطبيق الويب التقدمي", e);
   }
 }

@@ -50,7 +50,7 @@ function ArchivePage() {
     setArchiving(false);
     if (error) return toast.error(error.message);
     toast.success(`تمت أرشفة ${data?.length ?? 0} طالب للعام ${currentYear}`);
-    await logActivity("archive", "students", null, { year: currentYear, count: data?.length ?? 0 });
+    await logActivity("أرشفة", "طلاب", null, { year: currentYear, count: data?.length ?? 0 });
     load();
   }
 
