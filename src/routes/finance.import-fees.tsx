@@ -184,10 +184,10 @@ function FinanceImportFees() {
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <h3 className="font-semibold text-blue-900 mb-2">📋 تنسيق الملف المتوقع:</h3>
               <ul className="text-sm text-blue-900 space-y-1 list-disc list-inside">
-                <li>العمود الأول: اسم الفصل (Grade 12، Grade 11، إلخ)</li>
-                <li>العمود الثاني: القسط الأول</li>
-                <li>العمود الثالث: القسط الثاني</li>
-                <li>العمود الرابع: الدفعة الذهبية (أو أي رسوم إضافية)</li>
+                <li>كل ورقة (Sheet) تمثل فصل واحد باسم الفصل (Grade 8, Grade 9، إلخ)</li>
+                <li>في الخلايا الأولى من الورقة: أرقام الرسوم (القسط الأول والثاني)</li>
+                <li>الأرقام الكبيرة يتم قراءتها كرسوم (الأقساط يجب أن تكون أكبر من 5000)</li>
+                <li>يمكن أن تكون بأي ترتيب، النظام سيتعرف عليها تلقائياً</li>
               </ul>
             </div>
           </CardContent>
