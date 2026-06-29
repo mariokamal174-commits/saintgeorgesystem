@@ -65,50 +65,54 @@ export const importFeesFromExcel = createServerFn({ method: "POST" })
         let goldenFirst = 0;
         let goldenSecond = 0;
         
-        // قسط أول
-        const firstMatch = firstRowText.match(/قسط\s*(?:اول|أول|اولى|أولى|اوله|أوله)\s*[:\-\s]*(\d+)/i);
-        if (firstMatch) firstInstall = parseFloat(firstMatch[1]) || 0;
+        // تقسيم النص إلى أسطر معالجة
+        const lines = firstRowText.split(/\n|\r\n/);
+        let allText = firstRowText.toLowerCase();
         
-        // قسط ثاني
-        const secondMatch = firstRowText.match(/قسط\s*(?:تاني|ثاني|تانى|ثانى|تانية|ثانية)\s*[:\-\s]*(\d+)/i);
-        if (secondMatch) secondInstall = parseFloat(secondMatch[1]) || 0;
+        // استخراج جميع الأرقام من النص
+        const allNumbers = firstRowText.match(/\d+/g) || [];
+        const numbers = allNumbers.map(n => parseInt(n));
         
-        // البحث عن الاجمالى (الدفعة الذهبية)
-        // يحتاج نبحث عن أرقام متعددة لاستخراج الإجمالي
-        const allNumbersMatch = firstRowText.match(/(\d+)[\s\D]*?(\d+)[\s\D]*?(\d+)/);
-        if (allNumbersMatch && allNumbersMatch.length >= 3) {
-          const num1 = parseFloat(allNumbersMatch[1]);
-          const num2 = parseFloat(allNumbersMatch[2]);
-          const num3 = parseFloat(allNumbersMatch[3]);
-          
-          // الترتيب عادة: قسط أول، قسط ثاني، إجمالي
-          // لكن قد نحتاج نقارن مع القيم المستخرجة
-          if (firstInstall > 0 && secondInstall > 0) {
-            // لدينا القسط الأول والثاني، فالرقم الثالث هو الإجمالي
-            if (num3 > firstInstall && num3 > secondInstall) {
-              goldenBatch = num3;
-              goldenFirst = firstInstall;
-              goldenSecond = secondInstall;
-            }
-          } else if (num1 > 0 && num2 > 0) {
-            // ربما الأرقام الثلاثة الأولى هي قسط أول وثاني وإجمالي
-            firstInstall = num1;
-            secondInstall = num2;
-            goldenBatch = num3;
-            goldenFirst = num1;
-            goldenSecond = num2;
+        // قسط أول - البحث في كل سطر
+        for (const line of lines) {
+          if (line.toLowerCase().includes('قسط') && (line.toLowerCase().includes('اول') || line.toLowerCase().includes('أول'))) {
+            const match = line.match(/(\d+)/);
+            if (match) firstInstall = parseInt(match[1]);
+            break;
           }
         }
         
-        // إذا لم نجد الدفعة الذهبية، ابحث عن كلمة اجمالى مباشرة
-        if (goldenBatch === 0) {
-          const totalMatch = firstRowText.match(/اجمال[ى|ي|ة]\s*[:\-\s]*(\d+)/i);
-          if (totalMatch) {
-            goldenBatch = parseFloat(totalMatch[1]) || 0;
-            // في هذه الحالة، الأقساط الذهبية هي نفس الأقساط العادية
-            goldenFirst = firstInstall;
-            goldenSecond = secondInstall;
+        // قسط ثاني
+        for (const line of lines) {
+          if (line.toLowerCase().includes('قسط') && (line.toLowerCase().includes('ثاني') || line.toLowerCase().includes('تاني'))) {
+            const match = line.match(/(\d+)/);
+            if (match) secondInstall = parseInt(match[1]);
+            break;
           }
+        }
+        
+        // الدفعة الذهبية (اجمالى)
+        // قد تكون "اجمالى" أو "إجمالي"
+        const totalMatch = firstRowText.match(/اجمال[ىي]?\s+(\d+)/i);
+        if (totalMatch) {
+          goldenBatch = parseInt(totalMatch[1]);
+        }
+        
+        // إذا كان لدينا إجمالي، فالأقساط الذهبية = الأقساط العادية (أو قد نحتاج معلومات منفصلة)
+        if (goldenBatch > 0) {
+          goldenFirst = firstInstall;
+          goldenSecond = secondInstall;
+        }
+        
+        // إذا كان النص يحتوي على معلومات منفصلة للدفعة الذهبية (قسط ذهبي أول، قسط ذهبي ثاني)
+        const goldenFirstMatch = firstRowText.match(/(?:قسط|ق)\s*ذهب[ي|يّ|ي|ة]?\s*(?:اول|أول|أولى|اولى)\s*(\d+)/i);
+        if (goldenFirstMatch) {
+          goldenFirst = parseInt(goldenFirstMatch[1]);
+        }
+        
+        const goldenSecondMatch = firstRowText.match(/(?:قسط|ق)\s*ذهب[ي|يّ|ي|ة]?\s*(?:ثاني|تاني|ثانى|تانى|ثانية|تانية)\s*(\d+)/i);
+        if (goldenSecondMatch) {
+          goldenSecond = parseInt(goldenSecondMatch[1]);
         }
         
         // البحث عن أسماء الطلاب باللون الأحمر
