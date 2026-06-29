@@ -32,107 +32,67 @@ export const importFeesFromExcel = createServerFn({ method: "POST" })
       
       const fees: FeesData[] = [];
       
-      // البحث عن رؤوس الأعمدة
-      let gradeCol = -1, firstInstallCol = -1, secondInstallCol = -1, goldenCol = -1;
-      
-      // البحث عن الـ header row
-      let headerRowIdx = -1;
-      for (let i = 0; i < Math.min(15, jsonData.length); i++) {
+      // المسح عبر الصفوف - البيانات من فوق مباشرة
+      for (let i = 0; i < Math.min(50, jsonData.length); i++) {
         const row = jsonData[i];
-        if (!row || row.length < 2) continue;
+        if (!row || row.length === 0) continue;
         
-        // ابحث عن كلمات مثل "الفصل" أو "grade"
-        const rowStr = row.map(r => String(r || "")).join(" ").toLowerCase();
-        const hasGradeKeyword = rowStr.includes("فصل") || rowStr.includes("grade");
-        const hasInstallKeyword = rowStr.includes("قسط") || rowStr.includes("installment");
+        // البحث عن اسم الفصل (Grade, G1, 10, 11، إلخ)
+        let gradeName = "";
+        let firstInstall = 0;
+        let secondInstall = 0;
+        let goldenBatch = 0;
         
-        if (hasGradeKeyword || hasInstallKeyword) {
-          headerRowIdx = i;
-          break;
-        }
-      }
-      
-      // إذا لم نجد header بشكل واضح، حاول البحث عن أول صف يحتوي على أرقام
-      if (headerRowIdx === -1) {
-        for (let i = 0; i < Math.min(10, jsonData.length); i++) {
-          const row = jsonData[i];
-          if (!row || row.length < 3) continue;
+        // البحث عن كلمات تدل على الفصل
+        for (let j = 0; j < row.length; j++) {
+          const cell = String(row[j] || "").trim();
+          const cellLower = cell.toLowerCase();
           
-          // تحقق إذا كان الصف يحتوي على نص واحد متبوعاً بأرقام
-          const hasText = row.some(r => isNaN(parseFloat(String(r))));
-          const hasNumbers = row.some(r => !isNaN(parseFloat(String(r))));
-          
-          if (hasText && hasNumbers) {
-            headerRowIdx = i;
+          // ابحث عن كلمة "فصل" أو "grade" أو حرف واحد مع رقم
+          if (cellLower.includes("grade") || 
+              cellLower.match(/^g\d+$/i) ||
+              cell.match(/^\d+$/) && parseInt(cell) >= 10 && parseInt(cell) <= 21) {
+            gradeName = cell;
             break;
           }
         }
-      }
-      
-      // إذا وجدنا الـ header
-      if (headerRowIdx >= 0 && headerRowIdx < jsonData.length) {
-        const headerRow = jsonData[headerRowIdx];
         
-        // ابحث عن الأعمدة
-        for (let idx = 0; idx < headerRow.length; idx++) {
-          const h = String(headerRow[idx] || "").toLowerCase().trim();
-          if (h.includes("فصل") || h === "grade" || h.includes("class")) gradeCol = idx;
-          if (h.includes("قسط") && h.includes("أول")) firstInstallCol = idx;
-          if (h.includes("قسط") && h.includes("ثاني")) secondInstallCol = idx;
-          if (h.includes("ذهب") || h.includes("دفعة")) goldenCol = idx;
-        }
-        
-        // إذا لم نجد أعمدة معينة، استنتجها من الموضع
-        if (gradeCol === -1) gradeCol = 0;
-        if (firstInstallCol === -1) firstInstallCol = 1;
-        if (secondInstallCol === -1) secondInstallCol = 2;
-        if (goldenCol === -1) goldenCol = 3;
-        
-        // معالجة الصفوف بعد الـ header
-        for (let i = headerRowIdx + 1; i < jsonData.length; i++) {
-          const row = jsonData[i];
-          if (!row || row.length === 0) continue;
-          
-          const gradeName = String(row[gradeCol] || "").trim();
-          if (!gradeName) continue;
-          
-          // تجاهل الصفوف الخاصة
-          const lowerGrade = gradeName.toLowerCase();
-          if (
-            lowerGrade === "total" ||
-            lowerGrade === "الإجمالي" ||
-            lowerGrade.includes("كشف") ||
-            lowerGrade.includes("خزينة") ||
-            lowerGrade.includes("sheet") ||
-            lowerGrade.length < 2
-          ) {
-            continue;
+        // إذا وجدنا الفصل، ابحث عن الرسوم في نفس الصف
+        if (gradeName) {
+          for (let j = 0; j < row.length; j++) {
+            const cell = String(row[j] || "");
+            const cellLower = cell.toLowerCase();
+            const num = parseFloat(cell.replace(/[^0-9.-]/g, "")) || 0;
+            
+            // ابحث عن كلمات الرسوم وأرقامها
+            if (num > 1000) {
+              if (cellLower.includes("أول") || cellLower.includes("first")) {
+                firstInstall = num;
+              } else if (cellLower.includes("ثاني") || cellLower.includes("second")) {
+                secondInstall = num;
+              } else if (cellLower.includes("ذهب") || cellLower.includes("golden") || cellLower.includes("دفعة")) {
+                goldenBatch = num;
+              }
+            }
           }
           
-          // قراءة الأرقام - إزالة أي أحرف غير رقمية
-          const parseNum = (val: any) => {
-            const str = String(val || "").replace(/[^0-9.-]/g, "");
-            return parseFloat(str) || 0;
-          };
-          
-          const first = parseNum(row[firstInstallCol]);
-          const second = parseNum(row[secondInstallCol]);
-          const golden = parseNum(row[goldenCol]);
-          
-          // أضف فقط إذا كان هناك أرقام صحيحة
-          if (first > 0 || second > 0 || golden > 0) {
+          // إذا وجدنا رسوم، أضف الصف
+          if (firstInstall > 0 || secondInstall > 0 || goldenBatch > 0) {
             fees.push({
               grade_name: gradeName,
-              first_installment: first,
-              second_installment: second,
-              golden_batch_fees: golden,
+              first_installment: firstInstall,
+              second_installment: secondInstall,
+              golden_batch_fees: goldenBatch,
             });
+            
+            // انتقل للصف التالي بعد العثور على فصل صحيح
+            i += 2;
           }
         }
       }
       
       if (fees.length === 0) {
-        throw new Error("لم يتم العثور على بيانات صحيحة في الملف. تأكد من أن الملف يحتوي على جدول بأسماء الفصول والرسوم");
+        throw new Error("لم يتم العثور على بيانات. تأكد من وجود أسماء الفصول والرسوم في الملف");
       }
       
       return { success: true, fees, count: fees.length };
