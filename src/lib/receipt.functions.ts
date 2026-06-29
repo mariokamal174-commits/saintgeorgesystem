@@ -1,6 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { supabase } from "@/integrations/supabase/client";
 
 interface DeleteReceiptInput {
   receiptId: string;
@@ -15,9 +14,10 @@ export const deleteReceipt = createServerFn({ method: "POST" })
   })
   .handler(async ({ data, context }) => {
     const { receiptId } = data;
-    const user = context.user;
+    const userId = context.userId;
+    const supabase = context.supabase;
 
-    if (!user) throw new Error("غير مصرح");
+    if (!userId) throw new Error("غير مصرح");
 
     // Get receipt details first
     const { data: receipt, error: fetchError } = await supabase
@@ -30,37 +30,43 @@ export const deleteReceipt = createServerFn({ method: "POST" })
     if (!receipt) throw new Error("الإيصال غير موجود");
 
     // Check authorization - must be admin or finance
-    const { data: userData } = await supabase
-      .from("users_and_permissions")
+    const { data: roles } = await supabase
+      .from("user_roles")
       .select("role")
-      .eq("id", user.id)
-      .maybeSingle();
+      .eq("user_id", userId);
 
-    const isAdmin = userData?.role === "admin";
-    const isFinance = userData?.role === "finance";
+    const userRoles = (roles ?? []).map((r: any) => r.role);
+    const isAdmin = userRoles.includes("admin");
+    const isFinance = userRoles.includes("finance");
 
     if (!isAdmin && !isFinance) {
       throw new Error("فقط الموظفون الماليون والمديرون يمكنهم حذف الإيصالات");
     }
 
-    // Delete image from storage if exists
+    // Import admin client dynamically to run on the server only
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // Delete image from storage if exists using admin client
     if (receipt.image_url) {
       try {
         const path = receipt.image_url;
-        await supabase.storage.from("receipt-images").remove([path]);
+        await supabaseAdmin.storage.from("receipt-images").remove([path]);
       } catch (e) {
         console.warn("فشل حذف صورة الإيصال", e);
         // Don't fail the whole operation if image deletion fails
       }
     }
 
-    // Delete the receipt
-    const { error: deleteError } = await supabase
+    // Delete the receipt using admin client to bypass any RLS restriction
+    const { error: deleteError } = await supabaseAdmin
       .from("receipts")
       .delete()
       .eq("id", receiptId);
 
     if (deleteError) throw deleteError;
+
+    // Explicitly recompute student balance using admin client to guarantee it reflects the deletion immediately
+    await supabaseAdmin.rpc("recompute_student_totals", { _student_id: receipt.student_id });
 
     return {
       success: true,
