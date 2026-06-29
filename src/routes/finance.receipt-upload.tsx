@@ -115,15 +115,11 @@ function FinanceReceiptUpload() {
       const r = result as Record<string, string | number | null>;
       
       setForm((prev) => {
-        const actFees = Number(r.activity_fees) || 0;
-        const eduFees = Number(r.education_fees) || 0;
-        const totalAmount = Number(r.amount) || 0;
-        const installmentAmount = totalAmount + actFees + eduFees;
         const next = {
           ...prev,
           receipt_number: r.receipt_number != null ? String(r.receipt_number) : prev.receipt_number,
           receipt_date: r.receipt_date ? String(r.receipt_date) : prev.receipt_date,
-          amount: String(installmentAmount),
+          amount: r.amount != null ? String(Number(r.amount) || 0) : prev.amount,
           activity_fees: r.activity_fees != null ? String(r.activity_fees) : prev.activity_fees,
           education_fees: r.education_fees != null ? String(r.education_fees) : prev.education_fees,
           installment_type: (r.installment_type === "second" ? "second" : r.installment_type === "both" ? "both" : "first") as "first" | "second" | "both",
