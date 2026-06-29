@@ -84,14 +84,55 @@ function FinanceImportFees() {
       let successCount = 0;
       let gradeNotFoundCount = 0;
 
+      // تحميل قائمة الفصول كاملة للبحث في الذاكرة لتجنب مشاكل matching
+      const { data: allGrades, error: gradesError } = await supabase
+        .from("grades")
+        .select("id, name, level");
+
+      if (gradesError || !allGrades) {
+        toast.error("فشل في تحميل قائمة الفصول من قاعدة البيانات");
+        setApplying(false);
+        return;
+      }
+
+      const levelMap: Record<number, string[]> = {
+        1: ["k1", "kg1", "كي جي 1", "الاول رياض", "روضة اول"],
+        2: ["k2", "kg2", "كي جي 2", "الثاني رياض", "روضة ثاني"],
+        3: ["g1", "grade1", "grade 1", "1", "الاول", "اولى"],
+        4: ["g2", "grade2", "grade 2", "2", "الثاني", "تانية"],
+        5: ["g3", "grade3", "grade 3", "3", "الثالث", "تالتة"],
+        6: ["g4", "grade4", "grade 4", "4", "الرابع", "رابعة"],
+        7: ["g5", "grade5", "grade 5", "5", "الخامس", "خامسة"],
+        8: ["g6", "grade6", "grade 6", "6", "السادس", "ستة"],
+        9: ["g7", "grade7", "grade 7", "7", "الاول الاعدادي", "اعدادي اول"],
+        10: ["g8", "grade8", "grade 8", "8", "الثاني الاعدادي", "اعدادي ثاني"],
+        11: ["g9", "grade9", "grade 9", "9", "الثالث الاعدادي", "اعدادي ثالث"],
+        12: ["g10", "grade10", "grade 10", "10", "الاول الثانوي", "ثانوي اول"],
+        13: ["g11", "grade11", "grade 11", "11", "الثاني الثانوي", "ثانوي ثاني"],
+        14: ["g12", "grade12", "grade 12", "12", "الثالث الثانوي", "ثانوي ثالث"],
+      };
+
       for (const fee of fees) {
-        // البحث عن الـ grade
-        const searchName = fee.grade_name.trim().toLowerCase() === "g1" ? "Grade 1" : fee.grade_name;
-        const { data: gradeData } = await supabase
-          .from("grades")
-          .select("id")
-          .ilike("name", `%${searchName}%`)
-          .maybeSingle();
+        const searchNameClean = fee.grade_name.trim().toLowerCase();
+        
+        // البحث عن الصف في الذاكرة
+        const gradeData = allGrades.find(g => {
+          const dbNameClean = g.name.trim().toLowerCase();
+          
+          // 1. تطابق مباشر (كامل أو بدون مسافات)
+          if (dbNameClean === searchNameClean) return true;
+          if (dbNameClean.replace(/\s+/g, "") === searchNameClean.replace(/\s+/g, "")) return true;
+          
+          // 2. تطابق عبر قائمة المرادفات بناءً على المستوى
+          if (g.level !== null && g.level !== undefined) {
+            const aliases = levelMap[g.level] ?? [];
+            return aliases.some(alias => {
+              const aliasClean = alias.toLowerCase().trim();
+              return searchNameClean.replace(/\s+/g, "") === aliasClean.replace(/\s+/g, "");
+            });
+          }
+          return false;
+        });
 
         if (!gradeData) {
           gradeNotFoundCount++;
