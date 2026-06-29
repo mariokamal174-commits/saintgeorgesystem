@@ -73,13 +73,41 @@ export const importFeesFromExcel = createServerFn({ method: "POST" })
         const secondMatch = firstRowText.match(/قسط\s*(?:تاني|ثاني|تانى|ثانى|تانية|ثانية)\s*[:\-\s]*(\d+)/i);
         if (secondMatch) secondInstall = parseFloat(secondMatch[1]) || 0;
         
-        // دفعة ذهبية - اجمالى
-        const goldenMatch = firstRowText.match(/اجمال[ى|ي|ة]\s*[:\-\s]*(\d+)/i);
-        if (goldenMatch) {
-          goldenBatch = parseFloat(goldenMatch[1]) || 0;
-          // الأقساط الذهبية = الأقساط العادية
-          goldenFirst = firstInstall;
-          goldenSecond = secondInstall;
+        // دفعة ذهبية - ابحث عن "الدفعة الذهبية" أو "اجمالى" (لكن تميز بينهما)
+        let goldenMatch = null;
+        
+        // أولاً: ابحث عن "الدفعة الذهبية" (يعني موجودة في خلية منفصلة أو نص منفصل)
+        if (firstRowText.includes('الدفعة الذهبية') || firstRowText.includes('دفعة ذهبية')) {
+          // استخرج كل شيء بعد "الدفعة الذهبية"
+          const goldenSectionMatch = firstRowText.split('الدفعة الذهبية');
+          if (goldenSectionMatch.length > 1) {
+            const goldenSection = goldenSectionMatch[1];
+            const goldenNumbers = goldenSection.match(/(\d+)/g) || [];
+            
+            // الأرقام الثلاثة بالترتيب: الإجمالي، قسط أول، قسط ثاني
+            if (goldenNumbers.length >= 3) {
+              goldenBatch = parseFloat(goldenNumbers[0]) || 0;      // 39900
+              goldenFirst = parseFloat(goldenNumbers[1]) || 0;       // 29900
+              goldenSecond = parseFloat(goldenNumbers[2]) || 0;      // 10000
+            } else if (goldenNumbers.length === 2) {
+              goldenBatch = parseFloat(goldenNumbers[0]) || 0;
+              goldenFirst = parseFloat(goldenNumbers[1]) || 0;
+              goldenSecond = goldenBatch - goldenFirst;
+            } else if (goldenNumbers.length === 1) {
+              goldenBatch = parseFloat(goldenNumbers[0]) || 0;
+              goldenFirst = firstInstall;
+              goldenSecond = secondInstall;
+            }
+          }
+        } else {
+          // ثانياً: إذا كنا ما لقينا "الدفعة الذهبية"، ابحث عن اجمالى عادي
+          goldenMatch = firstRowText.match(/اجمال[ى|ي|ة]\s*[:\-\s]*(\d+)/i);
+          if (goldenMatch) {
+            goldenBatch = parseFloat(goldenMatch[1]) || 0;
+            // الأقساط الذهبية = الأقساط العادية
+            goldenFirst = firstInstall;
+            goldenSecond = secondInstall;
+          }
         }
         
         // البحث عن أسماء الطلاب باللون الأحمر

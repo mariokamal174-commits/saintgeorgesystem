@@ -23,6 +23,7 @@ import { Route as StudentsIdRouteImport } from './routes/students.$id'
 import { Route as ReceiptsNewRouteImport } from './routes/receipts.new'
 import { Route as FinanceReceiptUploadRouteImport } from './routes/finance.receipt-upload'
 import { Route as FinanceInstallmentsRouteImport } from './routes/finance.installments'
+import { Route as FinanceImportFeesRouteImport } from './routes/finance.import-fees'
 import { Route as StudentsIdIndexRouteImport } from './routes/students.$id.index'
 import { Route as StudentsIdPrintRouteImport } from './routes/students.$id.print'
 import { Route as StudentsIdEditRouteImport } from './routes/students.$id.edit'
@@ -99,6 +100,11 @@ const FinanceInstallmentsRoute = FinanceInstallmentsRouteImport.update({
   path: '/finance/installments',
   getParentRoute: () => rootRouteImport,
 } as any)
+const FinanceImportFeesRoute = FinanceImportFeesRouteImport.update({
+  id: '/finance/import-fees',
+  path: '/finance/import-fees',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const StudentsIdIndexRoute = StudentsIdIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -128,6 +134,7 @@ const ClassesIdPrintRoute = ClassesIdPrintRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/finance/import-fees': typeof FinanceImportFeesRoute
   '/finance/installments': typeof FinanceInstallmentsRoute
   '/finance/receipt-upload': typeof FinanceReceiptUploadRoute
   '/receipts/new': typeof ReceiptsNewRoute
@@ -149,6 +156,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/finance/import-fees': typeof FinanceImportFeesRoute
   '/finance/installments': typeof FinanceInstallmentsRoute
   '/finance/receipt-upload': typeof FinanceReceiptUploadRoute
   '/receipts/new': typeof ReceiptsNewRoute
@@ -170,6 +178,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/finance/import-fees': typeof FinanceImportFeesRoute
   '/finance/installments': typeof FinanceInstallmentsRoute
   '/finance/receipt-upload': typeof FinanceReceiptUploadRoute
   '/receipts/new': typeof ReceiptsNewRoute
@@ -193,6 +202,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/finance/import-fees'
     | '/finance/installments'
     | '/finance/receipt-upload'
     | '/receipts/new'
@@ -214,6 +224,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
+    | '/finance/import-fees'
     | '/finance/installments'
     | '/finance/receipt-upload'
     | '/receipts/new'
@@ -234,6 +245,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/auth'
+    | '/finance/import-fees'
     | '/finance/installments'
     | '/finance/receipt-upload'
     | '/receipts/new'
@@ -256,6 +268,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRoute
+  FinanceImportFeesRoute: typeof FinanceImportFeesRoute
   FinanceInstallmentsRoute: typeof FinanceInstallmentsRoute
   FinanceReceiptUploadRoute: typeof FinanceReceiptUploadRoute
   ReceiptsNewRoute: typeof ReceiptsNewRoute
@@ -372,6 +385,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FinanceInstallmentsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/finance/import-fees': {
+      id: '/finance/import-fees'
+      path: '/finance/import-fees'
+      fullPath: '/finance/import-fees'
+      preLoaderRoute: typeof FinanceImportFeesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/students/$id/': {
       id: '/students/$id/'
       path: '/'
@@ -429,6 +449,7 @@ const StudentsIdRouteWithChildren = StudentsIdRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRoute,
+  FinanceImportFeesRoute: FinanceImportFeesRoute,
   FinanceInstallmentsRoute: FinanceInstallmentsRoute,
   FinanceReceiptUploadRoute: FinanceReceiptUploadRoute,
   ReceiptsNewRoute: ReceiptsNewRoute,
