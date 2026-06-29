@@ -50,22 +50,27 @@ export const importFeesFromExcel = createServerFn({ method: "POST" })
         // ابحث عن الأرقام مع كلمات القسط والإجمالي
         let firstInstall = 0;
         let secondInstall = 0;
+        let goldenBatch = 0;
         
-        // قسط أول
-        const firstMatch = firstRowText.match(/قسط\s*(?:اولى|أول|أولى|first)[\s\D]*?(\d+)/i);
+        // قسط أول (مع معالجة الصيغ المختلفة)
+        const firstMatch = firstRowText.match(/قسط\s*(?:اول|أول|اولى|أولى|اوله|أوله)\s*[:\-\s]*(\d+)/i);
         if (firstMatch) firstInstall = parseFloat(firstMatch[1]) || 0;
         
         // قسط ثاني
-        const secondMatch = firstRowText.match(/قسط\s*(?:تاني|ثاني|تانى|ثانى|second)[\s\D]*?(\d+)/i);
+        const secondMatch = firstRowText.match(/قسط\s*(?:تاني|ثاني|تانى|ثانى|تانية|ثانية)\s*[:\-\s]*(\d+)/i);
         if (secondMatch) secondInstall = parseFloat(secondMatch[1]) || 0;
         
+        // دفعة ذهبية / إجمالي (الاجمالى هو الدفعة الذهبية)
+        const goldenMatch = firstRowText.match(/(?:اجمال|إجمال|دفعة\s*ذهب|ذهبية)\s*[:\-\s]*(\d+)/i);
+        if (goldenMatch) goldenBatch = parseFloat(goldenMatch[1]) || 0;
+        
         // إذا وجدنا رسوم، أضفها
-        if (firstInstall > 0 || secondInstall > 0) {
+        if (firstInstall > 0 || secondInstall > 0 || goldenBatch > 0) {
           fees.push({
             grade_name: gradeName,
             first_installment: firstInstall,
             second_installment: secondInstall,
-            golden_batch_fees: 0,
+            golden_batch_fees: goldenBatch,
           });
         }
       }
