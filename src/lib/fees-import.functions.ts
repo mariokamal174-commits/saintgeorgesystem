@@ -73,27 +73,42 @@ export const importFeesFromExcel = createServerFn({ method: "POST" })
         const secondMatch = firstRowText.match(/قسط\s*(?:تاني|ثاني|تانى|ثانى|تانية|ثانية)\s*[:\-\s]*(\d+)/i);
         if (secondMatch) secondInstall = parseFloat(secondMatch[1]) || 0;
         
-        // دفعة ذهبية - البحث عن كل الأرقام بعد كلمة "دفعة ذهبية"
-        let goldenNumbers: number[] = [];
-        const goldenSection = firstRowText.match(/(?:الدفعة|دفعة)\s*ذهبي[ة|][\s\D]*?(\d+)[\s\D]*?(\d+)[\s\D]*?(\d+)?/i);
-        if (goldenSection) {
-          goldenNumbers = [
-            parseFloat(goldenSection[1]) || 0,
-            parseFloat(goldenSection[2]) || 0,
-            parseFloat(goldenSection[3]) || 0
-          ];
-          if (goldenNumbers[0] > 0) goldenBatch = goldenNumbers[0];
-          if (goldenNumbers[1] > 0) goldenFirst = goldenNumbers[1];
-          if (goldenNumbers[2] > 0) goldenSecond = goldenNumbers[2];
+        // البحث عن الاجمالى (الدفعة الذهبية)
+        // يحتاج نبحث عن أرقام متعددة لاستخراج الإجمالي
+        const allNumbersMatch = firstRowText.match(/(\d+)[\s\D]*?(\d+)[\s\D]*?(\d+)/);
+        if (allNumbersMatch && allNumbersMatch.length >= 3) {
+          const num1 = parseFloat(allNumbersMatch[1]);
+          const num2 = parseFloat(allNumbersMatch[2]);
+          const num3 = parseFloat(allNumbersMatch[3]);
+          
+          // الترتيب عادة: قسط أول، قسط ثاني، إجمالي
+          // لكن قد نحتاج نقارن مع القيم المستخرجة
+          if (firstInstall > 0 && secondInstall > 0) {
+            // لدينا القسط الأول والثاني، فالرقم الثالث هو الإجمالي
+            if (num3 > firstInstall && num3 > secondInstall) {
+              goldenBatch = num3;
+              goldenFirst = firstInstall;
+              goldenSecond = secondInstall;
+            }
+          } else if (num1 > 0 && num2 > 0) {
+            // ربما الأرقام الثلاثة الأولى هي قسط أول وثاني وإجمالي
+            firstInstall = num1;
+            secondInstall = num2;
+            goldenBatch = num3;
+            goldenFirst = num1;
+            goldenSecond = num2;
+          }
         }
         
-        // إذا لم نجد أقساط الدفعة الذهبية، حاول البحث المباشر
-        if (goldenBatch > 0 && goldenFirst === 0) {
-          const goldenFirstDirect = firstRowText.match(/(?:الدفعة|دفعة)\s*ذهبي[ة|][\s\D]*?قسط\s*(?:أول|اول|اولى|أولى)\s*[:\-\s]*(\d+)/i);
-          if (goldenFirstDirect) goldenFirst = parseFloat(goldenFirstDirect[1]) || 0;
-          
-          const goldenSecondDirect = firstRowText.match(/(?:الدفعة|دفعة)\s*ذهبي[ة|][\s\D]*?قسط\s*(?:ثاني|تاني|ثانى|تانى|ثانية|تانية)\s*[:\-\s]*(\d+)/i);
-          if (goldenSecondDirect) goldenSecond = parseFloat(goldenSecondDirect[1]) || 0;
+        // إذا لم نجد الدفعة الذهبية، ابحث عن كلمة اجمالى مباشرة
+        if (goldenBatch === 0) {
+          const totalMatch = firstRowText.match(/اجمال[ى|ي|ة]\s*[:\-\s]*(\d+)/i);
+          if (totalMatch) {
+            goldenBatch = parseFloat(totalMatch[1]) || 0;
+            // في هذه الحالة، الأقساط الذهبية هي نفس الأقساط العادية
+            goldenFirst = firstInstall;
+            goldenSecond = secondInstall;
+          }
         }
         
         // البحث عن أسماء الطلاب باللون الأحمر

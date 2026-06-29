@@ -256,15 +256,42 @@ function FinanceImportFees() {
                       {fee.red_text_student_names && fee.red_text_student_names.length > 0 && (
                         <tr className="bg-red-50 border-t">
                           <td colSpan={6} className="px-4 py-3">
-                            <div>
-                              <p className="text-sm font-semibold text-red-900 mb-2">👥 الطلاب باللون الأحمر (يطبق عليهم الدفعة الذهبية):</p>
-                              <div className="flex flex-wrap gap-2">
-                                {fee.red_text_student_names.map((name, idx) => (
-                                  <Badge key={idx} variant="outline" className="text-red-700 border-red-300">
-                                    {name}
-                                  </Badge>
-                                ))}
+                            <div className="space-y-3">
+                              <div>
+                                <p className="text-sm font-semibold text-red-900 mb-2">👥 الطلاب باللون الأحمر (يطبق عليهم الدفعة الذهبية):</p>
+                                <div className="flex flex-wrap gap-2 mb-3">
+                                  {fee.red_text_student_names.map((name, idx) => (
+                                    <Badge key={idx} variant="outline" className="text-red-700 border-red-300">
+                                      {name}
+                                    </Badge>
+                                  ))}
+                                </div>
                               </div>
+                              {(fee.golden_batch_fees > 0 || fee.golden_first_installment > 0 || fee.golden_second_installment > 0) && (
+                                <div className="bg-white border border-red-200 rounded p-3">
+                                  <p className="text-xs font-semibold text-red-800 mb-2">💰 الدفعات الذهبية الخاصة بهم:</p>
+                                  <div className="grid grid-cols-3 gap-2">
+                                    {fee.golden_batch_fees > 0 && (
+                                      <div className="text-center">
+                                        <p className="text-xs text-red-700">الإجمالي</p>
+                                        <p className="text-sm font-bold text-red-900">{fmt(fee.golden_batch_fees)}</p>
+                                      </div>
+                                    )}
+                                    {fee.golden_first_installment > 0 && (
+                                      <div className="text-center">
+                                        <p className="text-xs text-red-700">قسط ذهبي أول</p>
+                                        <p className="text-sm font-bold text-red-900">{fmt(fee.golden_first_installment)}</p>
+                                      </div>
+                                    )}
+                                    {fee.golden_second_installment > 0 && (
+                                      <div className="text-center">
+                                        <p className="text-xs text-red-700">قسط ذهبي ثاني</p>
+                                        <p className="text-sm font-bold text-red-900">{fmt(fee.golden_second_installment)}</p>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           </td>
                         </tr>
