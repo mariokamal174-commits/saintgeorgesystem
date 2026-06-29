@@ -24,106 +24,54 @@ export const importFeesFromExcel = createServerFn({ method: "POST" })
       
       // قراءة الملف
       const workbook = XLSX.read(binaryString, { type: "binary" });
-      const sheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[sheetName];
-      
-      // قراءة كل البيانات
-      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as (string | number)[][];
       
       const fees: FeesData[] = [];
       
-      // تسطيح جميع الخلايا إلى نص واحد لتحليله
-      const allText: string[] = [];
-      for (let i = 0; i < jsonData.length; i++) {
-        const row = jsonData[i];
-        if (row) {
-          for (let j = 0; j < row.length; j++) {
-            const cell = String(row[j] || "").trim();
-            if (cell) allText.push(cell);
-          }
-        }
-      }
-      
-      // البحث عن أسماء الفصول والرسوم
-      let currentGrade = "";
-      let firstInstall = 0;
-      let secondInstall = 0;
-      let goldenBatch = 0;
-      
-      for (let i = 0; i < allText.length; i++) {
-        const cell = allText[i].toLowerCase();
-        const cellOrig = allText[i];
-        const num = parseFloat(cellOrig.replace(/[^0-9.-]/g, "")) || 0;
+      // معالجة كل ورقة في المصنف
+      for (const sheetName of workbook.SheetNames) {
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" }) as (string | number)[][];
         
-        // ابحث عن اسم الفصل
-        if (cellOrig.match(/^(G|Grade)\d+$/i) || cellOrig.match(/^\d+$/) && parseInt(cellOrig) >= 10 && parseInt(cellOrig) <= 21) {
-          // إذا كان لدينا فصل سابق بيانات، حفظه
-          if (currentGrade && (firstInstall > 0 || secondInstall > 0 || goldenBatch > 0)) {
-            fees.push({
-              grade_name: currentGrade,
-              first_installment: firstInstall,
-              second_installment: secondInstall,
-              golden_batch_fees: goldenBatch,
-            });
-          }
-          
-          // ابدأ بفصل جديد
-          currentGrade = cellOrig;
-          firstInstall = 0;
-          secondInstall = 0;
-          goldenBatch = 0;
-        }
+        if (!jsonData || jsonData.length < 2) continue;
         
-        // ابحث عن رسوم القسط الأول
-        if ((cell.includes("قسط") && cell.includes("أول")) || cell.includes("first")) {
-          // الرقم قد يكون في الخلية التالية أو في نفس الخلية
-          if (num > 1000) {
-            firstInstall = num;
-          } else if (i + 1 < allText.length) {
-            const nextNum = parseFloat(allText[i + 1].replace(/[^0-9.-]/g, "")) || 0;
-            if (nextNum > 1000) {
-              firstInstall = nextNum;
-            }
-          }
-        }
+        // الصف الأول يحتوي على معلومات الفصل والرسوم
+        const firstRow = jsonData[0];
+        if (!firstRow || firstRow.length === 0) continue;
         
-        // ابحث عن رسوم القسط الثاني
-        if ((cell.includes("قسط") && cell.includes("ثاني")) || cell.includes("second")) {
-          if (num > 1000) {
-            secondInstall = num;
-          } else if (i + 1 < allText.length) {
-            const nextNum = parseFloat(allText[i + 1].replace(/[^0-9.-]/g, "")) || 0;
-            if (nextNum > 1000) {
-              secondInstall = nextNum;
-            }
-          }
-        }
+        // ادمج جميع خلايا الصف الأول كنص واحد
+        const firstRowText = firstRow.map(r => String(r || "")).join(" ");
         
-        // ابحث عن الدفعة الذهبية
-        if ((cell.includes("ذهب") || cell.includes("دفعة") || cell.includes("golden")) && !cell.includes("قسط")) {
-          if (num > 1000) {
-            goldenBatch = num;
-          } else if (i + 1 < allText.length) {
-            const nextNum = parseFloat(allText[i + 1].replace(/[^0-9.-]/g, "")) || 0;
-            if (nextNum > 1000) {
-              goldenBatch = nextNum;
-            }
-          }
+        // ابحث عن اسم الفصل (KG1, G1, Grade 1, 1، إلخ)
+        const gradeMatch = firstRowText.match(/(KG\d+|G\d+|Grade\s*\d+|\d+)\b/i);
+        if (!gradeMatch) continue;
+        
+        const gradeName = gradeMatch[1];
+        
+        // ابحث عن الأرقام مع كلمات القسط والإجمالي
+        let firstInstall = 0;
+        let secondInstall = 0;
+        
+        // قسط أول
+        const firstMatch = firstRowText.match(/قسط\s*(?:اولى|أول|أولى|first)[\s\D]*?(\d+)/i);
+        if (firstMatch) firstInstall = parseFloat(firstMatch[1]) || 0;
+        
+        // قسط ثاني
+        const secondMatch = firstRowText.match(/قسط\s*(?:تاني|ثاني|تانى|ثانى|second)[\s\D]*?(\d+)/i);
+        if (secondMatch) secondInstall = parseFloat(secondMatch[1]) || 0;
+        
+        // إذا وجدنا رسوم، أضفها
+        if (firstInstall > 0 || secondInstall > 0) {
+          fees.push({
+            grade_name: gradeName,
+            first_installment: firstInstall,
+            second_installment: secondInstall,
+            golden_batch_fees: 0,
+          });
         }
-      }
-      
-      // أضف آخر فصل
-      if (currentGrade && (firstInstall > 0 || secondInstall > 0 || goldenBatch > 0)) {
-        fees.push({
-          grade_name: currentGrade,
-          first_installment: firstInstall,
-          second_installment: secondInstall,
-          golden_batch_fees: goldenBatch,
-        });
       }
       
       if (fees.length === 0) {
-        throw new Error("لم يتم العثور على بيانات. تأكد من وجود أسماء الفصول والرسوم في الملف");
+        throw new Error("لم يتم العثور على بيانات. تأكد من أن الملف يحتوي على أسماء الفصول والرسوم");
       }
       
       return { success: true, fees, count: fees.length };
