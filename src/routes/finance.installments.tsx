@@ -1,4 +1,4 @@
-import { createFileRoute, Outlet } from "@tanstack/react-router";
+import { createFileRoute, Outlet, Link } from "@tanstack/react-router";
 import { AppShell } from "@/components/app-shell";
 import { type ChangeEvent, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -11,6 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
 import { logActivity } from "@/lib/audit";
+import { Upload, FileUp } from "lucide-react";
 
 export const Route = createFileRoute("/finance/installments")({
   head: () => ({ meta: [{ title: "أقساط الفصول" }] }),
@@ -140,9 +141,19 @@ function FinanceInstallments() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">أقساط الفصول</h1>
-        <p className="text-muted-foreground mt-1">إدارة بيانات الأقساط لكل طالب أو فصل دفعة واحدة</p>
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-3xl font-bold">أقساط الفصول</h1>
+          <p className="text-muted-foreground mt-1">إدارة بيانات الأقساط لكل طالب أو فصل دفعة واحدة</p>
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          <Link to="/finance/import-fees">
+            <Button variant="outline"><FileUp className="ml-2 h-4 w-4" />استيراد من اكسيل</Button>
+          </Link>
+          <Link to="/finance/receipt-upload">
+            <Button><Upload className="ml-2 h-4 w-4" />رفع إيصالات</Button>
+          </Link>
+        </div>
       </div>
 
       <Card>

@@ -21,6 +21,7 @@ import { Route as ActivityIndexRouteImport } from './routes/activity.index'
 import { Route as StudentsNewRouteImport } from './routes/students.new'
 import { Route as StudentsIdRouteImport } from './routes/students.$id'
 import { Route as ReceiptsNewRouteImport } from './routes/receipts.new'
+import { Route as FinanceReceiptUploadRouteImport } from './routes/finance.receipt-upload'
 import { Route as FinanceInstallmentsRouteImport } from './routes/finance.installments'
 import { Route as StudentsIdIndexRouteImport } from './routes/students.$id.index'
 import { Route as StudentsIdPrintRouteImport } from './routes/students.$id.print'
@@ -88,6 +89,11 @@ const ReceiptsNewRoute = ReceiptsNewRouteImport.update({
   path: '/receipts/new',
   getParentRoute: () => rootRouteImport,
 } as any)
+const FinanceReceiptUploadRoute = FinanceReceiptUploadRouteImport.update({
+  id: '/finance/receipt-upload',
+  path: '/finance/receipt-upload',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const FinanceInstallmentsRoute = FinanceInstallmentsRouteImport.update({
   id: '/finance/installments',
   path: '/finance/installments',
@@ -123,6 +129,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/finance/installments': typeof FinanceInstallmentsRoute
+  '/finance/receipt-upload': typeof FinanceReceiptUploadRoute
   '/receipts/new': typeof ReceiptsNewRoute
   '/students/$id': typeof StudentsIdRouteWithChildren
   '/students/new': typeof StudentsNewRoute
@@ -143,6 +150,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/finance/installments': typeof FinanceInstallmentsRoute
+  '/finance/receipt-upload': typeof FinanceReceiptUploadRoute
   '/receipts/new': typeof ReceiptsNewRoute
   '/students/new': typeof StudentsNewRoute
   '/activity': typeof ActivityIndexRoute
@@ -163,6 +171,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/finance/installments': typeof FinanceInstallmentsRoute
+  '/finance/receipt-upload': typeof FinanceReceiptUploadRoute
   '/receipts/new': typeof ReceiptsNewRoute
   '/students/$id': typeof StudentsIdRouteWithChildren
   '/students/new': typeof StudentsNewRoute
@@ -185,6 +194,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/finance/installments'
+    | '/finance/receipt-upload'
     | '/receipts/new'
     | '/students/$id'
     | '/students/new'
@@ -205,6 +215,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/finance/installments'
+    | '/finance/receipt-upload'
     | '/receipts/new'
     | '/students/new'
     | '/activity'
@@ -224,6 +235,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/finance/installments'
+    | '/finance/receipt-upload'
     | '/receipts/new'
     | '/students/$id'
     | '/students/new'
@@ -245,6 +257,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRoute
   FinanceInstallmentsRoute: typeof FinanceInstallmentsRoute
+  FinanceReceiptUploadRoute: typeof FinanceReceiptUploadRoute
   ReceiptsNewRoute: typeof ReceiptsNewRoute
   StudentsIdRoute: typeof StudentsIdRouteWithChildren
   StudentsNewRoute: typeof StudentsNewRoute
@@ -345,6 +358,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ReceiptsNewRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/finance/receipt-upload': {
+      id: '/finance/receipt-upload'
+      path: '/finance/receipt-upload'
+      fullPath: '/finance/receipt-upload'
+      preLoaderRoute: typeof FinanceReceiptUploadRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/finance/installments': {
       id: '/finance/installments'
       path: '/finance/installments'
@@ -410,6 +430,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRoute,
   FinanceInstallmentsRoute: FinanceInstallmentsRoute,
+  FinanceReceiptUploadRoute: FinanceReceiptUploadRoute,
   ReceiptsNewRoute: ReceiptsNewRoute,
   StudentsIdRoute: StudentsIdRouteWithChildren,
   StudentsNewRoute: StudentsNewRoute,

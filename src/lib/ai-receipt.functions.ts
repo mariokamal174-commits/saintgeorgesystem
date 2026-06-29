@@ -4,7 +4,9 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 interface ExtractInput {
   imageBase64: string;
   mimeType: string;
-  isFirst: boolean;
+  isFirst?: boolean;
+  extractInstallmentType?: boolean;
+  receiptType?: "installment" | "education_fees" | "activity_fees";
 }
 
 export const extractReceiptData = createServerFn({ method: "POST" })
@@ -12,7 +14,13 @@ export const extractReceiptData = createServerFn({ method: "POST" })
   .inputValidator((input: unknown): ExtractInput => {
     const i = input as ExtractInput;
     if (!i?.imageBase64 || !i?.mimeType) throw new Error("Missing image");
-    return { imageBase64: i.imageBase64, mimeType: i.mimeType, isFirst: !!i.isFirst };
+    return { 
+      imageBase64: i.imageBase64, 
+      mimeType: i.mimeType, 
+      isFirst: !!i.isFirst,
+      extractInstallmentType: !!i.extractInstallmentType,
+      receiptType: i.receiptType ?? "installment",
+    };
   })
   .handler(async ({ data }) => {
     const key = process.env.LOVABLE_API_KEY;
@@ -29,10 +37,35 @@ export const extractReceiptData = createServerFn({ method: "POST" })
   "amount": "المبلغ كرقم",
   "receipt_date": "تاريخ الإيصال YYYY-MM-DD"
 }`;
+    
+    const schemaWithInstallment = `{
+  "receipt_number": "رقم الإيصال كنص",
+  "amount": "المبلغ الإجمالي كرقم",
+  "receipt_date": "تاريخ الإيصال YYYY-MM-DD",
+  "installment_type": "نوع القسط: 'first' للقسط الأول، 'second' للقسط الثاني، 'both' إذا كان الاتنين معاً",
+  "activity_fees": "رسوم النشاط كرقم إن وُجدت",
+  "education_fees": "رسوم التعليم كرقم إن وُجدت"
+}`;
+    
+    const schemaEducationOrActivity = `{
+  "receipt_number": "رقم الإيصال كنص",
+  "amount": "إجمالي المبلغ كرقم",
+  "receipt_date": "تاريخ الإيصال YYYY-MM-DD"
+}`;
 
-    const prompt = data.isFirst
-      ? `استخرج بيانات هذا الإيصال (أول قسط) وأعدها بصيغة JSON فقط بدون أي شرح. الحقول المطلوبة: ${schemaFirst}`
-      : `استخرج بيانات هذا الإيصال (قسط) وأعدها بصيغة JSON فقط بدون أي شرح. الحقول المطلوبة: ${schemaOther}`;
+    let prompt = "";
+    
+    if (data.receiptType === "education_fees") {
+      prompt = `استخرج بيانات إيصال رسوم التعليم وأعدها بصيغة JSON فقط بدون أي شرح. الحقول المطلوبة: ${schemaEducationOrActivity}`;
+    } else if (data.receiptType === "activity_fees") {
+      prompt = `استخرج بيانات إيصال رسوم النشاط ومقابل الخدمات وأعدها بصيغة JSON فقط بدون أي شرح. الحقول المطلوبة: ${schemaEducationOrActivity}`;
+    } else if (data.extractInstallmentType) {
+      prompt = `استخرج بيانات هذا الإيصال المدرسي وحدد نوع القسط. أعد النتيجة بصيغة JSON فقط بدون أي شرح. الحقول المطلوبة: ${schemaWithInstallment}`;
+    } else if (data.isFirst) {
+      prompt = `استخرج بيانات هذا الإيصال (أول قسط) وأعدها بصيغة JSON فقط بدون أي شرح. الحقول المطلوبة: ${schemaFirst}`;
+    } else {
+      prompt = `استخرج بيانات هذا الإيصال (قسط) وأعدها بصيغة JSON فقط بدون أي شرح. الحقول المطلوبة: ${schemaOther}`;
+    }
 
     const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
