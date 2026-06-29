@@ -37,15 +37,35 @@ export const importFeesFromExcel = createServerFn({ method: "POST" })
       
       // البحث عن الـ header row
       let headerRowIdx = -1;
-      for (let i = 0; i < Math.min(10, jsonData.length); i++) {
+      for (let i = 0; i < Math.min(15, jsonData.length); i++) {
         const row = jsonData[i];
-        if (!row) continue;
+        if (!row || row.length < 2) continue;
         
-        // ابحث عن كلمات مثل "الفصل" أو "grade" في هذا الصف
-        const rowStr = row.join(" ").toLowerCase();
-        if (rowStr.includes("فصل") || rowStr.includes("grade")) {
+        // ابحث عن كلمات مثل "الفصل" أو "grade"
+        const rowStr = row.map(r => String(r || "")).join(" ").toLowerCase();
+        const hasGradeKeyword = rowStr.includes("فصل") || rowStr.includes("grade");
+        const hasInstallKeyword = rowStr.includes("قسط") || rowStr.includes("installment");
+        
+        if (hasGradeKeyword || hasInstallKeyword) {
           headerRowIdx = i;
           break;
+        }
+      }
+      
+      // إذا لم نجد header بشكل واضح، حاول البحث عن أول صف يحتوي على أرقام
+      if (headerRowIdx === -1) {
+        for (let i = 0; i < Math.min(10, jsonData.length); i++) {
+          const row = jsonData[i];
+          if (!row || row.length < 3) continue;
+          
+          // تحقق إذا كان الصف يحتوي على نص واحد متبوعاً بأرقام
+          const hasText = row.some(r => isNaN(parseFloat(String(r))));
+          const hasNumbers = row.some(r => !isNaN(parseFloat(String(r))));
+          
+          if (hasText && hasNumbers) {
+            headerRowIdx = i;
+            break;
+          }
         }
       }
       
@@ -54,15 +74,15 @@ export const importFeesFromExcel = createServerFn({ method: "POST" })
         const headerRow = jsonData[headerRowIdx];
         
         // ابحث عن الأعمدة
-        headerRow.forEach((header, idx) => {
-          const h = String(header).toLowerCase().trim();
-          if (h.includes("فصل") || h.includes("grade")) gradeCol = idx;
+        for (let idx = 0; idx < headerRow.length; idx++) {
+          const h = String(headerRow[idx] || "").toLowerCase().trim();
+          if (h.includes("فصل") || h === "grade" || h.includes("class")) gradeCol = idx;
           if (h.includes("قسط") && h.includes("أول")) firstInstallCol = idx;
           if (h.includes("قسط") && h.includes("ثاني")) secondInstallCol = idx;
           if (h.includes("ذهب") || h.includes("دفعة")) goldenCol = idx;
-        });
+        }
         
-        // إذا لم نجد أعمدة معينة، استنتجها من الموضع النسبي
+        // إذا لم نجد أعمدة معينة، استنتجها من الموضع
         if (gradeCol === -1) gradeCol = 0;
         if (firstInstallCol === -1) firstInstallCol = 1;
         if (secondInstallCol === -1) secondInstallCol = 2;
@@ -76,10 +96,11 @@ export const importFeesFromExcel = createServerFn({ method: "POST" })
           const gradeName = String(row[gradeCol] || "").trim();
           if (!gradeName) continue;
           
-          // تجاهل الصفوف الخاصة (total, كشف، خزينة، sheet)
+          // تجاهل الصفوف الخاصة
           const lowerGrade = gradeName.toLowerCase();
           if (
             lowerGrade === "total" ||
+            lowerGrade === "الإجمالي" ||
             lowerGrade.includes("كشف") ||
             lowerGrade.includes("خزينة") ||
             lowerGrade.includes("sheet") ||
@@ -88,10 +109,15 @@ export const importFeesFromExcel = createServerFn({ method: "POST" })
             continue;
           }
           
-          // قراءة الأرقام
-          const first = parseFloat(String(row[firstInstallCol] || 0).replace(/[^0-9.-]/g, "")) || 0;
-          const second = parseFloat(String(row[secondInstallCol] || 0).replace(/[^0-9.-]/g, "")) || 0;
-          const golden = parseFloat(String(row[goldenCol] || 0).replace(/[^0-9.-]/g, "")) || 0;
+          // قراءة الأرقام - إزالة أي أحرف غير رقمية
+          const parseNum = (val: any) => {
+            const str = String(val || "").replace(/[^0-9.-]/g, "");
+            return parseFloat(str) || 0;
+          };
+          
+          const first = parseNum(row[firstInstallCol]);
+          const second = parseNum(row[secondInstallCol]);
+          const golden = parseNum(row[goldenCol]);
           
           // أضف فقط إذا كان هناك أرقام صحيحة
           if (first > 0 || second > 0 || golden > 0) {
@@ -106,7 +132,7 @@ export const importFeesFromExcel = createServerFn({ method: "POST" })
       }
       
       if (fees.length === 0) {
-        throw new Error("لم يتم العثور على بيانات صحيحة في الملف. تأكد من وجود جدول بأسماء الفصول والرسوم");
+        throw new Error("لم يتم العثور على بيانات صحيحة في الملف. تأكد من أن الملف يحتوي على جدول بأسماء الفصول والرسوم");
       }
       
       return { success: true, fees, count: fees.length };
