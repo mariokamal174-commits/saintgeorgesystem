@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { AppShell } from "@/components/app-shell";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
@@ -30,6 +31,7 @@ export const Route = createFileRoute("/receipts/")({
 function ReceiptsList() {
   const { isFinance, isAdmin } = useAuth();
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const deleteFn = useServerFn(deleteReceipt);
   const { data, refetch } = useQuery({
     queryKey: ["receipts"],
     queryFn: async () => {
@@ -56,7 +58,7 @@ function ReceiptsList() {
   async function handleDeleteReceipt(receiptId: string) {
     try {
       setDeletingId(receiptId);
-      const result = await deleteReceipt({ receiptId });
+      const result = await deleteFn({ data: { receiptId } });
       toast.success(result.message);
       refetch();
     } catch (error: any) {
