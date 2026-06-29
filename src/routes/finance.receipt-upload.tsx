@@ -171,35 +171,10 @@ function FinanceReceiptUpload() {
       const { data: receiptData, error: receiptError } = await supabase.from("receipts").insert(payload as never).select("id").maybeSingle();
       if (receiptError) throw receiptError;
 
-      // تحديث بيانات الطالب حسب نوع الإيصال
+      // ملاحظة: لا يجب تحديث first_installment/second_installment/activity_fees من هنا
+      // هذه الحقول تمثل المبلغ المستحق (total_due) وتُحدَّث من صفحة إدارة الأقساط فقط.
+      // الإيصال المعتمد يُحدَّث total_paid تلقائياً عبر الـ trigger في قاعدة البيانات.
       const student = students.find(s => s.id === form.student_id);
-      const updatePayload: Record<string, unknown> = {};
-
-      if (form.receipt_type === "installment") {
-        const activityFees = Number(form.activity_fees) || 0;
-        const educationFees = Number(form.education_fees) || 0;
-        const installmentAmount = amt - activityFees - educationFees;
-        
-        if (form.installment_type === "first" || form.installment_type === "both") {
-          if (form.installment_type === "both") {
-            // تقسيم المبلغ بالتساوي
-            updatePayload.first_installment = installmentAmount / 2 + activityFees / 2 + educationFees / 2;
-            updatePayload.second_installment = installmentAmount / 2 + activityFees / 2 + educationFees / 2;
-          } else {
-            // قسط أول فقط (يشمل الرسوم)
-            updatePayload.first_installment = installmentAmount + activityFees + educationFees;
-          }
-        } else if (form.installment_type === "second") {
-          updatePayload.second_installment = installmentAmount + activityFees + educationFees;
-        }
-      } else if (form.receipt_type === "activity_fees") {
-        updatePayload.activity_fees = amt;
-      }
-
-      if (Object.keys(updatePayload).length > 0) {
-        const { error: updateError } = await supabase.from("students").update(updatePayload).eq("id", form.student_id);
-        if (updateError) throw updateError;
-      }
 
       setLoading(false);
       const studentName = student?.full_name ?? "—";
