@@ -34,13 +34,16 @@ function FinanceReceiptUpload() {
   const navigate = useNavigate();
   const { isFinance, isAdmin } = useAuth();
   const extractFn = useServerFn(extractReceiptData);
-  const fileRef = useRef<HTMLInputElement>(null);
+  const fileRef1 = useRef<HTMLInputElement>(null);
+  const fileRef2 = useRef<HTMLInputElement>(null);
   
   const [students, setStudents] = useState<{ id: string; full_name: string; student_code: string | null }[]>([]);
   const [loading, setLoading] = useState(false);
   const [extracting, setExtracting] = useState(false);
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageFile1, setImageFile1] = useState<File | null>(null);
+  const [imagePreview1, setImagePreview1] = useState<string | null>(null);
+  const [imageFile2, setImageFile2] = useState<File | null>(null);
+  const [imagePreview2, setImagePreview2] = useState<string | null>(null);
   
   const [form, setForm] = useState({
     student_id: studentId ?? "",
@@ -85,37 +88,58 @@ function FinanceReceiptUpload() {
     return <div className="text-center text-muted-foreground py-12">رفع الإيصالات متاح للشؤون المالية فقط</div>;
   }
 
-  async function handleImageChange(f: File | null) {
-    setImageFile(f);
-    if (!f) { setImagePreview(null); return; }
+  async function handleImageChange1(f: File | null) {
+    setImageFile1(f);
+    if (!f) { setImagePreview1(null); return; }
     const reader = new FileReader();
-    reader.onload = () => setImagePreview(reader.result as string);
+    reader.onload = () => setImagePreview1(reader.result as string);
     reader.readAsDataURL(f);
   }
 
+  async function handleImageChange2(f: File | null) {
+    setImageFile2(f);
+    if (!f) { setImagePreview2(null); return; }
+    const reader = new FileReader();
+    reader.onload = () => setImagePreview2(reader.result as string);
+    reader.readAsDataURL(f);
+  }
+
+  async function extractFromFile(file: File, rType: typeof form.receipt_type) {
+    const base64 = await new Promise<string>((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(((r.result as string).split(",")[1]) ?? "");
+      r.onerror = reject;
+      r.readAsDataURL(file);
+    });
+    
+    const result = await extractFn({ 
+      data: { 
+        imageBase64: base64, 
+        mimeType: file.type || "image/jpeg", 
+        extractInstallmentType: rType === "installment",
+        receiptType: rType,
+      } 
+    });
+    return result as Record<string, string | number | null>;
+  }
+
   async function runExtraction() {
-    if (!imageFile) return toast.error("ارفع صورة الإيصال أولاً");
+    if (!imageFile1 && !imageFile2) return toast.error("ارفع صورة إيصال واحدة على الأقل");
     setExtracting(true);
     try {
-      const base64 = await new Promise<string>((resolve, reject) => {
-        const r = new FileReader();
-        r.onload = () => resolve(((r.result as string).split(",")[1]) ?? "");
-        r.onerror = reject;
-        r.readAsDataURL(imageFile);
-      });
-      
-      const result = await extractFn({ 
-        data: { 
-          imageBase64: base64, 
-          mimeType: imageFile.type || "image/jpeg", 
-          extractInstallmentType: form.receipt_type === "installment",
-          receiptType: form.receipt_type,
-        } 
-      });
-      const r = result as Record<string, string | number | null>;
-      
-      setForm((prev) => {
-        const next = {
+      const promises: Promise<Record<string, string | number | null>>[] = [];
+      if (imageFile1) {
+        promises.push(extractFromFile(imageFile1, form.receipt_type));
+      }
+      if (imageFile2) {
+        promises.push(extractFromFile(imageFile2, form.receipt_type));
+      }
+
+      const results = await Promise.all(promises);
+
+      if (results.length === 1) {
+        const r = results[0];
+        setForm((prev) => ({
           ...prev,
           receipt_number: r.receipt_number != null ? String(r.receipt_number) : prev.receipt_number,
           receipt_date: r.receipt_date ? String(r.receipt_date) : prev.receipt_date,
@@ -123,10 +147,54 @@ function FinanceReceiptUpload() {
           activity_fees: r.activity_fees != null ? String(r.activity_fees) : prev.activity_fees,
           education_fees: r.education_fees != null ? String(r.education_fees) : prev.education_fees,
           installment_type: (r.installment_type === "second" ? "second" : r.installment_type === "both" ? "both" : "first") as "first" | "second" | "both",
-        };
-        return next;
-      });
-      toast.success("تم استخراج البيانات من الصورة");
+        }));
+      } else if (results.length === 2) {
+        const r1 = results[0];
+        const r2 = results[1];
+
+        // رقم الإيصال
+        const num1 = r1.receipt_number != null ? String(r1.receipt_number).trim() : "";
+        const num2 = r2.receipt_number != null ? String(r2.receipt_number).trim() : "";
+        const combinedNumber = num1 && num2 ? `${num1} + ${num2}` : (num1 || num2);
+
+        // التاريخ
+        const date1 = r1.receipt_date ? String(r1.receipt_date) : "";
+        const date2 = r2.receipt_date ? String(r2.receipt_date) : "";
+        const combinedDate = date1 && date2 ? (date1 > date2 ? date1 : date2) : (date1 || date2);
+
+        // المبالغ
+        const amt1 = Number(r1.amount) || 0;
+        const amt2 = Number(r2.amount) || 0;
+        const combinedAmount = String(amt1 + amt2);
+
+        // رسوم النشاط ورسوم التعليم
+        const act1 = Number(r1.activity_fees) || 0;
+        const act2 = Number(r2.activity_fees) || 0;
+        const combinedActivity = String(act1 + act2);
+
+        const edu1 = Number(r1.education_fees) || 0;
+        const edu2 = Number(r2.education_fees) || 0;
+        const combinedEducation = String(edu1 + edu2);
+
+        // نوع القسط
+        const instType = (r1.installment_type === "both" || r2.installment_type === "both") 
+          ? "both" 
+          : (r1.installment_type === "second" || r2.installment_type === "second") 
+            ? "second" 
+            : "first";
+
+        setForm((prev) => ({
+          ...prev,
+          receipt_number: combinedNumber || prev.receipt_number,
+          receipt_date: combinedDate || prev.receipt_date,
+          amount: combinedAmount,
+          activity_fees: combinedActivity || prev.activity_fees,
+          education_fees: combinedEducation || prev.education_fees,
+          installment_type: instType as "first" | "second" | "both",
+        }));
+      }
+      
+      toast.success("تم استخراج البيانات من الصور بنجاح ودمجها");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "فشل استخراج البيانات");
     } finally {
@@ -144,13 +212,28 @@ function FinanceReceiptUpload() {
     setLoading(true);
     try {
       let image_url: string | null = null;
-      if (imageFile) {
-        const ext = imageFile.name.split(".").pop() || "jpg";
+      const uploadedPaths: string[] = [];
+
+      if (imageFile1) {
+        const ext = imageFile1.name.split(".").pop() || "jpg";
         const typeFolder = form.receipt_type === "installment" ? "installments" : "activity-fees";
-        const path = `${typeFolder}/${form.student_id}/${Date.now()}.${ext}`;
-        const { error: upErr } = await supabase.storage.from("receipt-images").upload(path, imageFile, { contentType: imageFile.type });
-        if (upErr) throw new Error("فشل رفع الصورة: " + upErr.message);
-        image_url = path;
+        const path = `${typeFolder}/${form.student_id}/${Date.now()}_1.${ext}`;
+        const { error: upErr } = await supabase.storage.from("receipt-images").upload(path, imageFile1, { contentType: imageFile1.type });
+        if (upErr) throw new Error("فشل رفع الصورة الأولى: " + upErr.message);
+        uploadedPaths.push(path);
+      }
+
+      if (imageFile2) {
+        const ext = imageFile2.name.split(".").pop() || "jpg";
+        const typeFolder = form.receipt_type === "installment" ? "installments" : "activity-fees";
+        const path = `${typeFolder}/${form.student_id}/${Date.now()}_2.${ext}`;
+        const { error: upErr } = await supabase.storage.from("receipt-images").upload(path, imageFile2, { contentType: imageFile2.type });
+        if (upErr) throw new Error("فشل رفع الصورة الثانية: " + upErr.message);
+        uploadedPaths.push(path);
+      }
+
+      if (uploadedPaths.length > 0) {
+        image_url = uploadedPaths.join(",");
       }
 
       // حفظ الإيصال
@@ -279,28 +362,71 @@ function FinanceReceiptUpload() {
               </div>
             )}
 
-            <div className="space-y-2 border rounded-lg p-3 bg-muted/30">
-              <Label>صورة الإيصال *</Label>
-              <input
-                ref={fileRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => handleImageChange(e.target.files?.[0] ?? null)}
-              />
-              <div className="flex flex-wrap gap-2">
-                <Button type="button" variant="outline" size="sm" onClick={() => fileRef.current?.click()}>
-                  <UploadIcon className="ml-2 h-4 w-4" />اختر صورة
-                </Button>
-                <Button type="button" size="sm" disabled={!imageFile || extracting} onClick={runExtraction}>
-                  {extracting ? <Loader2 className="ml-2 h-4 w-4 animate-spin" /> : <Sparkles className="ml-2 h-4 w-4" />}
-                  استخراج البيانات بالذكاء الاصطناعي
-                </Button>
-                {imageFile && <span className="text-xs text-muted-foreground self-center">{imageFile.name}</span>}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border rounded-lg p-4 bg-muted/30">
+              <div className="space-y-2 border rounded-lg p-3 bg-background">
+                <Label>صورة الإيصال الأول *</Label>
+                <input
+                  ref={fileRef1}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => handleImageChange1(e.target.files?.[0] ?? null)}
+                />
+                <div className="flex flex-wrap gap-2 items-center">
+                  <Button type="button" variant="outline" size="sm" onClick={() => fileRef1.current?.click()}>
+                    <UploadIcon className="ml-2 h-4 w-4" />
+                    {imageFile1 ? "تغيير الصورة" : "اختر صورة"}
+                  </Button>
+                  {imageFile1 && (
+                    <Button type="button" variant="ghost" size="sm" className="text-red-500 h-8" onClick={() => handleImageChange1(null)}>
+                      حذف
+                    </Button>
+                  )}
+                  {imageFile1 && <span className="text-xs text-muted-foreground truncate max-w-[150px]">{imageFile1.name}</span>}
+                </div>
+                {imagePreview1 && (
+                  <img src={imagePreview1} alt="معاينة الإيصال الأول" className="mt-2 max-h-40 object-contain rounded border w-full bg-slate-50" />
+                )}
               </div>
-              {imagePreview && (
-                <img src={imagePreview} alt="معاينة الإيصال" className="mt-2 max-h-64 rounded border" />
-              )}
+
+              <div className="space-y-2 border rounded-lg p-3 bg-background">
+                <Label>صورة الإيصال الثاني (اختياري)</Label>
+                <input
+                  ref={fileRef2}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => handleImageChange2(e.target.files?.[0] ?? null)}
+                />
+                <div className="flex flex-wrap gap-2 items-center">
+                  <Button type="button" variant="outline" size="sm" onClick={() => fileRef2.current?.click()}>
+                    <UploadIcon className="ml-2 h-4 w-4" />
+                    {imageFile2 ? "تغيير الصورة" : "اختر صورة"}
+                  </Button>
+                  {imageFile2 && (
+                    <Button type="button" variant="ghost" size="sm" className="text-red-500 h-8" onClick={() => handleImageChange2(null)}>
+                      حذف
+                    </Button>
+                  )}
+                  {imageFile2 && <span className="text-xs text-muted-foreground truncate max-w-[150px]">{imageFile2.name}</span>}
+                </div>
+                {imagePreview2 && (
+                  <img src={imagePreview2} alt="معاينة الإيصال الثاني" className="mt-2 max-h-40 object-contain rounded border w-full bg-slate-50" />
+                )}
+              </div>
+
+              <div className="md:col-span-2 flex justify-center pt-2">
+                <Button 
+                  type="button" 
+                  size="sm" 
+                  disabled={(!imageFile1 && !imageFile2) || extracting} 
+                  onClick={runExtraction}
+                  className="w-full sm:w-auto"
+                >
+                  {extracting ? <Loader2 className="ml-2 h-4 w-4 animate-spin" /> : <Sparkles className="ml-2 h-4 w-4" />}
+                  استخراج البيانات بالذكاء الاصطناعي ودمجها
+                </Button>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

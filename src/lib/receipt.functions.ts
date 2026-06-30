@@ -49,8 +49,10 @@ export const deleteReceipt = createServerFn({ method: "POST" })
     // Delete image from storage if exists using admin client
     if (receipt.image_url) {
       try {
-        const path = receipt.image_url;
-        await supabaseAdmin.storage.from("receipt-images").remove([path]);
+        const paths = receipt.image_url.includes(",") 
+          ? receipt.image_url.split(",").map(p => p.trim()) 
+          : [receipt.image_url];
+        await supabaseAdmin.storage.from("receipt-images").remove(paths);
       } catch (e) {
         console.warn("فشل حذف صورة الإيصال", e);
         // Don't fail the whole operation if image deletion fails

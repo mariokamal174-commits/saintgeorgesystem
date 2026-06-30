@@ -597,9 +597,20 @@ function StudentDetail() {
 
               {selectedReceipt.image_url && (
                 <div className="border-t pt-4">
-                  <p className="text-sm text-muted-foreground mb-3">صورة الإيصال</p>
-                  <div className="max-h-96 overflow-auto rounded-md border">
-                    <ReceiptImage imageUrl={selectedReceipt.image_url} />
+                  <p className="text-sm text-muted-foreground mb-3">
+                    {selectedReceipt.image_url.includes(",") ? "صور الإيصالات" : "صورة الإيصال"}
+                  </p>
+                  <div className="grid grid-cols-1 gap-4 max-h-96 overflow-auto">
+                    {selectedReceipt.image_url.split(",").map((url, index, arr) => (
+                      <div key={index} className="border rounded-md overflow-hidden bg-slate-50">
+                        {arr.length > 1 && (
+                          <div className="bg-muted px-2 py-1 text-xs text-muted-foreground border-b font-medium">
+                            صورة الإيصال {index + 1}
+                          </div>
+                        )}
+                        <ReceiptImage imageUrl={url.trim()} />
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
