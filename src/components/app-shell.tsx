@@ -4,10 +4,12 @@ import { useAuth } from "@/hooks/use-auth";
 import {
   GraduationCap, Users, Receipt, Upload, ShieldCheck,
   LayoutDashboard, LogOut, Loader2, Activity, Archive, UserMinus, Wallet,
+  Download, Smartphone,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import type { ReactNode } from "react";
+import { useState, useEffect, type ReactNode } from "react";
+import { toast } from "sonner";
 
 interface NavItem { to: string; label: string; icon: typeof Users; show: boolean }
 
@@ -15,6 +17,61 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { user, profile, loading, isAdmin, isApproved, isFinance, isStudentAffairs, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isInstallable, setIsInstallable] = useState(false);
+  const [isIOS, setIsIOS] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    // Detect if already installed / standalone
+    const isStandalone = window.matchMedia("(display-mode: standalone)").matches || (window.navigator as any).standalone;
+    if (isStandalone) return;
+
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setIsInstallable(true);
+    };
+
+    const handleAppInstalled = () => {
+      setDeferredPrompt(null);
+      setIsInstallable(false);
+      toast.success("تم تثبيت التطبيق بنجاح على جهازك!");
+    };
+
+    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+    window.addEventListener("appinstalled", handleAppInstalled);
+
+    // iOS Detection
+    const userAgent = window.navigator.userAgent.toLowerCase();
+    const isIOSDevice = /iphone|ipad|ipod/.test(userAgent);
+    if (isIOSDevice) {
+      setIsIOS(true);
+    }
+
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+      window.removeEventListener("appinstalled", handleAppInstalled);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === "accepted") {
+      setDeferredPrompt(null);
+      setIsInstallable(false);
+    }
+  };
+
+  const handleIOSInstallClick = () => {
+    toast.info("لتثبيت التطبيق على آيفون:\n1. اضغط على زر مشاركة 📤 في متصفح Safari\n2. اختر 'إضافة إلى الصفحة الرئيسية' ➕", {
+      duration: 8000,
+    });
+  };
 
   if (loading) {
     return <div className="flex min-h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
@@ -77,6 +134,22 @@ export function AppShell({ children }: { children: ReactNode }) {
             );
           })}
         </nav>
+
+        {(isInstallable || isIOS) && (
+          <div className="p-3 mx-3 my-2 rounded-xl bg-sidebar-accent/50 border border-sidebar-border text-center">
+            <p className="text-[11px] text-sidebar-foreground/70 mb-2 font-medium">تنزيل التطبيق على جهازك</p>
+            {isInstallable ? (
+              <Button onClick={handleInstallClick} size="sm" className="w-full bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90 text-xs py-1.5 h-auto cursor-pointer">
+                <Download className="ml-1.5 h-3.5 w-3.5" /> تثبيت التطبيق
+              </Button>
+            ) : (
+              <Button onClick={handleIOSInstallClick} size="sm" variant="outline" className="w-full text-xs py-1.5 h-auto hover:bg-sidebar-accent text-sidebar-foreground/90 border-sidebar-border cursor-pointer">
+                <Smartphone className="ml-1.5 h-3.5 w-3.5" /> تثبيت على الآيفون
+              </Button>
+            )}
+          </div>
+        )}
+
         <div className="p-3 border-t border-sidebar-border">
           <div className="px-3 py-2 text-sm">
             <div className="font-medium">{profile?.full_name}</div>
