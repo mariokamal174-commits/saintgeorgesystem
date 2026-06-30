@@ -24,8 +24,27 @@ function StudentsList() {
   const [gradeId, setGradeId] = useState<string>("all");
   const [archivedFilter, setArchivedFilter] = useState<"current" | "archived" | "all">("current");
   const [paymentFilter, setPaymentFilter] = useState<"all" | "paid" | "unpaid">("all");
+  const [newStudentFilter, setNewStudentFilter] = useState<"all" | "new" | "old">(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      return params.get("new") === "true" ? "new" : "all";
+    }
+    return "all";
+  });
   const [page, setPage] = useState(0);
   const PAGE = 25;
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      if (newStudentFilter === "new") {
+        url.searchParams.set("new", "true");
+      } else {
+        url.searchParams.delete("new");
+      }
+      window.history.replaceState({}, "", url.toString());
+    }
+  }, [newStudentFilter]);
 
   const { data: grades } = useQuery({
     queryKey: ["grades-all"],
@@ -50,7 +69,7 @@ function StudentsList() {
   }, [grades]);
 
   const { data, refetch, isLoading } = useQuery({
-    queryKey: ["students", q, page, gradeId, archivedFilter, paymentFilter],
+    queryKey: ["students", q, page, gradeId, archivedFilter, paymentFilter, newStudentFilter],
     queryFn: async () => {
       let qb = supabase.from("students").select("*, classes(name), grades(name), delivery_tracking(item, delivered)", { count: "exact" })
         .order("created_at", { ascending: false })
@@ -60,6 +79,11 @@ function StudentsList() {
       else if (archivedFilter === "archived") qb = qb.not("archived_year", "is", null);
       if ((isFinance || isAdmin) && paymentFilter !== "all") {
         qb = qb.eq("payment_status", paymentFilter);
+      }
+      if (newStudentFilter === "new") {
+        qb = qb.eq("is_new_student", true);
+      } else if (newStudentFilter === "old") {
+        qb = qb.eq("is_new_student", false);
       }
       if (q.trim()) {
         const term = `%${q.trim()}%`;
@@ -129,6 +153,11 @@ function StudentsList() {
     else if (archivedFilter === "archived") qb = qb.not("archived_year", "is", null);
     if ((isFinance || isAdmin) && paymentFilter !== "all") {
       qb = qb.eq("payment_status", paymentFilter);
+    }
+    if (newStudentFilter === "new") {
+      qb = qb.eq("is_new_student", true);
+    } else if (newStudentFilter === "old") {
+      qb = qb.eq("is_new_student", false);
     }
     const { data: all } = await qb;
     const rows = ((all ?? []) as any[]).slice();
@@ -212,6 +241,14 @@ function StudentsList() {
                   </SelectGroup>
                 )
               ))}
+            </SelectContent>
+          </Select>
+          <Select value={newStudentFilter} onValueChange={(v) => { setNewStudentFilter(v as any); setPage(0); }}>
+            <SelectTrigger className="md:w-44"><SelectValue placeholder="نوع الطالب" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">كل الطلاب</SelectItem>
+              <SelectItem value="new">الطلاب الجدد فقط</SelectItem>
+              <SelectItem value="old">الطلاب القدامى فقط</SelectItem>
             </SelectContent>
           </Select>
           <Select value={archivedFilter} onValueChange={(v) => { setArchivedFilter(v as never); setPage(0); }}>

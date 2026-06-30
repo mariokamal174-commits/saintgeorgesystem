@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { AppShell } from "@/components/app-shell";
 import { useState } from "react";
 import { useDropzone } from "react-dropzone";
@@ -450,10 +450,12 @@ function getGradePrefix(gradeLevel: number | null): string {
 import { useAuth } from "@/hooks/use-auth";
 function Imports() {
   const { isStudentAffairs, isAdmin } = useAuth();
+  const navigate = useNavigate();
   const getRedTextFn = useServerFn(getRedTextStudents);
   const [parsing, setParsing] = useState(false);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [importing, setImporting] = useState(false);
+  const [showNewOnlyInPreview, setShowNewOnlyInPreview] = useState(false);
   const [errorDetails, setErrorDetails] = useState<{
     sheets: string[];
     bestSheet?: string;
@@ -838,6 +840,7 @@ function Imports() {
     await logActivity("استيراد", "بيانات_طلاب", null, { inserted, updated, skipped, total: preview.rows.length });
     setImporting(false); setPreview(null);
     toast.success(`تم: ${inserted} إضافة · ${updated} تحديث · ${skipped} تخطي`);
+    navigate({ to: "/students", search: { new: "true" } as any });
   }
 
   return (
@@ -941,6 +944,19 @@ function Imports() {
               </div>
             )}
 
+            <div className="flex items-center gap-2 mb-4 bg-emerald-50/50 dark:bg-emerald-500/5 p-3 rounded-lg border border-emerald-100 dark:border-emerald-500/10">
+              <input
+                type="checkbox"
+                id="show-new-only"
+                checked={showNewOnlyInPreview}
+                onChange={(e) => setShowNewOnlyInPreview(e.target.checked)}
+                className="h-4 w-4 rounded border-border text-primary focus:ring-primary cursor-pointer"
+              />
+              <label htmlFor="show-new-only" className="text-xs font-semibold text-emerald-800 dark:text-emerald-300 select-none cursor-pointer">
+                تصفية المعاينة: عرض الطلاب الجدد فقط (اللون الأحمر في Excel)
+              </label>
+            </div>
+
             <div className="border rounded-md overflow-x-auto max-h-64">
               <table className="w-full text-xs">
                 <thead className="bg-muted sticky top-0"><tr>
@@ -954,44 +970,48 @@ function Imports() {
                   <th className="px-2 py-2 text-center">حذف</th>
                 </tr></thead>
                 <tbody>
-                  {preview.rows.slice(0, 50).map((r, i) => (
-                    <tr key={i} className="border-t">
-                      <td className="px-2 py-1.5">
-                        {String(r.full_name ?? "—")}
-                        {r.is_new_student && (
-                          <Badge className="mr-1 bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30 text-[10px] py-0 px-1">جديد</Badge>
-                        )}
-                      </td>
-                      <td className="px-2 py-1.5">{String(r.student_code ?? "—")}</td>
-                      <td className="px-2 py-1.5 text-right">
-                        <span className="text-muted-foreground text-[10px] block">
-                          {String(r.sheet_name ?? "")}
-                        </span>
-                        {r.matched_grade_name ? (
-                          <span className="font-semibold text-primary">
-                            {String(r.matched_grade_name)}
-                            {r.matched_class_name ? ` - ${String(r.matched_class_name)}` : ""}
+                  {preview.rows
+                    .map((r, idx) => ({ r, idx }))
+                    .filter(({ r }) => !showNewOnlyInPreview || r.is_new_student)
+                    .slice(0, 50)
+                    .map(({ r, idx }) => (
+                      <tr key={idx} className="border-t">
+                        <td className="px-2 py-1.5">
+                          {String(r.full_name ?? "—")}
+                          {r.is_new_student && (
+                            <Badge className="mr-1 bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30 text-[10px] py-0 px-1">جديد</Badge>
+                          )}
+                        </td>
+                        <td className="px-2 py-1.5">{String(r.student_code ?? "—")}</td>
+                        <td className="px-2 py-1.5 text-right">
+                          <span className="text-muted-foreground text-[10px] block">
+                            {String(r.sheet_name ?? "")}
                           </span>
-                        ) : (
-                          <span className="text-destructive font-medium text-[11px]">لم يتم مطابقة الصف</span>
-                        )}
-                      </td>
-                      <td className="px-2 py-1.5">{String(r.first_installment ?? 0)}</td>
-                      <td className="px-2 py-1.5">{String(r.second_installment ?? 0)}</td>
-                      <td className="px-2 py-1.5">{String(r.previous_installments ?? 0)}</td>
-                      <td className="px-2 py-1.5">{String(r.other_fees ?? 0)}</td>
-                      <td className="px-2 py-1.5 text-center">
-                        <button
-                          type="button"
-                          onClick={() => setPreview((current) => current ? updatePreviewRows(current, i) : current)}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border bg-background text-destructive hover:bg-destructive/10"
-                          title="حذف الصف"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                          {r.matched_grade_name ? (
+                            <span className="font-semibold text-primary">
+                              {String(r.matched_grade_name)}
+                              {r.matched_class_name ? ` - ${String(r.matched_class_name)}` : ""}
+                            </span>
+                          ) : (
+                            <span className="text-destructive font-medium text-[11px]">لم يتم مطابقة الصف</span>
+                          )}
+                        </td>
+                        <td className="px-2 py-1.5">{String(r.first_installment ?? 0)}</td>
+                        <td className="px-2 py-1.5">{String(r.second_installment ?? 0)}</td>
+                        <td className="px-2 py-1.5">{String(r.previous_installments ?? 0)}</td>
+                        <td className="px-2 py-1.5">{String(r.other_fees ?? 0)}</td>
+                        <td className="px-2 py-1.5 text-center">
+                          <button
+                            type="button"
+                            onClick={() => setPreview((current) => current ? updatePreviewRows(current, idx) : current)}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border bg-background text-destructive hover:bg-destructive/10"
+                            title="حذف الصف"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
                 </tbody>
               </table>
             </div>
