@@ -344,10 +344,12 @@ function StudentDetail() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className={`grid grid-cols-1 md:grid-cols-${isStudentAffairs && !isAdmin && !isFinance ? 3 : 4} gap-4`}>
         <StatCard label="إجمالي المستحق" value={fmt(Number(s.total_due))} />
         <StatCard label="إجمالي المدفوع" value={fmt(Number(s.total_paid))} tone="success" />
-        <StatCard label="المتبقي" value={fmt(Math.max(Number(s.remaining_balance), 0))} tone={Number(s.remaining_balance) > 0 ? "warning" : "success"} />
+        {!(isStudentAffairs && !isAdmin && !isFinance) && (
+          <StatCard label="المتبقي" value={fmt(Math.max(Number(s.remaining_balance), 0))} tone={Number(s.remaining_balance) > 0 ? "warning" : "success"} />
+        )}
         <Card><CardContent className="p-4">
           <div className="text-sm text-muted-foreground mb-2">الحالة</div>
           <div className="flex items-center justify-between gap-3">
