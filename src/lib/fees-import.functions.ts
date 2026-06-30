@@ -13,6 +13,39 @@ interface FeesData {
   red_text_student_names?: string[];
 }
 
+/**
+ * Determines whether an ExcelJS font color is red.
+ * Excel stores red in multiple formats:
+ *  1. ARGB string "FFFF0000" / "FF0000"
+ *  2. Indexed color 3 (the default Excel red in the color palette)
+ *  3. Any ARGB where red channel is dominant (> 200) and green/blue are low (< 80)
+ */
+function isFontColorRed(font: Partial<ExcelJS.Font> | undefined): boolean {
+  if (!font) return false;
+  const color = font.color as any;
+  if (!color) return false;
+
+  // Indexed color 3 = standard Excel red
+  if (typeof color.indexed === "number" && color.indexed === 3) return true;
+
+  if (typeof color.argb === "string") {
+    const argb = color.argb.toUpperCase().replace(/^#/, "");
+    if (argb.length === 8) {
+      const r = parseInt(argb.slice(2, 4), 16);
+      const g = parseInt(argb.slice(4, 6), 16);
+      const b = parseInt(argb.slice(6, 8), 16);
+      if (!isNaN(r) && r >= 200 && g < 80 && b < 80) return true;
+    }
+    if (argb.length === 6) {
+      const r = parseInt(argb.slice(0, 2), 16);
+      const g = parseInt(argb.slice(2, 4), 16);
+      const b = parseInt(argb.slice(4, 6), 16);
+      if (!isNaN(r) && r >= 200 && g < 80 && b < 80) return true;
+    }
+  }
+  return false;
+}
+
 export const importFeesFromExcel = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => {
@@ -113,21 +146,13 @@ export const importFeesFromExcel = createServerFn({ method: "POST" })
         // البحث عن أسماء الطلاب باللون الأحمر
         const redTextStudents: string[] = [];
         if (excelSheet) {
-          // البحث في الصفوف عن خلايا بأسماء باللون الأحمر (في العمود الثاني عادة)
-          excelSheet.eachRow((row, rowNumber) => {
-            if (rowNumber <= 1) return; // تخطي الصفوف الأولى (headers)
-            
-            const nameCell = row.getCell(2); // العمود الثاني عادة يحتوي على الاسم
+          excelSheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+            if (rowNumber <= 1) return; // تخطي صف الهيدر
+            const nameCell = row.getCell(2);
             if (nameCell && nameCell.value) {
-              const fontColor = nameCell.font?.color;
-              if (fontColor && typeof fontColor === 'object') {
-                const argb = (fontColor as any).argb;
-                if (argb) {
-                  const color = String(argb).toUpperCase();
-                  if (color === 'FFFF0000' || color === 'FF0000' || color.includes('FF0000')) {
-                    redTextStudents.push(String(nameCell.value));
-                  }
-                }
+              const valStr = String(nameCell.value).trim();
+              if (valStr && isFontColorRed(nameCell.font)) {
+                redTextStudents.push(valStr);
               }
             }
           });
