@@ -31,7 +31,7 @@ export const importFeesFromExcel = createServerFn({ method: "POST" })
       // قراءة الألوان باستخدام exceljs
       const buffer = Buffer.from(data.fileBase64, "base64");
       const excelWorkbook = new ExcelJS.Workbook();
-      await excelWorkbook.xlsx.load(buffer);
+      await excelWorkbook.xlsx.load(buffer as any);
       
       const fees: FeesData[] = [];
       
@@ -86,15 +86,15 @@ export const importFeesFromExcel = createServerFn({ method: "POST" })
             
             // الأرقام الثلاثة بالترتيب: الإجمالي، قسط أول، قسط ثاني
             if (goldenNumbers.length >= 3) {
-              goldenBatch = parseFloat(goldenNumbers[0]) || 0;      // 39900
-              goldenFirst = parseFloat(goldenNumbers[1]) || 0;       // 29900
-              goldenSecond = parseFloat(goldenNumbers[2]) || 0;      // 10000
+              goldenBatch = parseFloat(goldenNumbers[0] || "0") || 0;      // 39900
+              goldenFirst = parseFloat(goldenNumbers[1] || "0") || 0;       // 29900
+              goldenSecond = parseFloat(goldenNumbers[2] || "0") || 0;      // 10000
             } else if (goldenNumbers.length === 2) {
-              goldenBatch = parseFloat(goldenNumbers[0]) || 0;
-              goldenFirst = parseFloat(goldenNumbers[1]) || 0;
+              goldenBatch = parseFloat(goldenNumbers[0] || "0") || 0;
+              goldenFirst = parseFloat(goldenNumbers[1] || "0") || 0;
               goldenSecond = goldenBatch - goldenFirst;
             } else if (goldenNumbers.length === 1) {
-              goldenBatch = parseFloat(goldenNumbers[0]) || 0;
+              goldenBatch = parseFloat(goldenNumbers[0] || "0") || 0;
               goldenFirst = firstInstall;
               goldenSecond = secondInstall;
             }
@@ -103,7 +103,7 @@ export const importFeesFromExcel = createServerFn({ method: "POST" })
           // ثانياً: إذا كنا ما لقينا "الدفعة الذهبية"، ابحث عن اجمالى عادي
           goldenMatch = firstRowText.match(/اجمال[ى|ي|ة]\s*[:\-\s]*(\d+)/i);
           if (goldenMatch) {
-            goldenBatch = parseFloat(goldenMatch[1]) || 0;
+            goldenBatch = parseFloat(goldenMatch[1] || "0") || 0;
             // الأقساط الذهبية = الأقساط العادية
             goldenFirst = firstInstall;
             goldenSecond = secondInstall;
@@ -120,14 +120,14 @@ export const importFeesFromExcel = createServerFn({ method: "POST" })
             const nameCell = row.getCell(2); // العمود الثاني عادة يحتوي على الاسم
             if (nameCell && nameCell.value) {
               const fontColor = nameCell.font?.color;
-              // تحقق من اللون الأحمر (FF0000 أو معرّفات أخرى للأحمر)
-              if (fontColor && typeof fontColor === 'object' && 'argb' in fontColor) {
-                const color = String(fontColor.argb).toUpperCase();
-                if (color === 'FFFF0000' || color === 'FF0000' || color.includes('FF0000')) {
-                  redTextStudents.push(String(nameCell.value));
+              if (fontColor && typeof fontColor === 'object') {
+                const argb = (fontColor as any).argb;
+                if (argb) {
+                  const color = String(argb).toUpperCase();
+                  if (color === 'FFFF0000' || color === 'FF0000' || color.includes('FF0000')) {
+                    redTextStudents.push(String(nameCell.value));
+                  }
                 }
-              } else if (fontColor === 'FF0000' || fontColor === 'FF') {
-                redTextStudents.push(String(nameCell.value));
               }
             }
           });

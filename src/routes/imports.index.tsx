@@ -10,6 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Upload, FileSpreadsheet, Loader2, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { getRedTextStudents } from "@/lib/student-import.functions";
+import { useServerFn } from "@tanstack/react-start";
 
 
 export const Route = createFileRoute("/imports/")({
@@ -448,6 +450,7 @@ function getGradePrefix(gradeLevel: number | null): string {
 import { useAuth } from "@/hooks/use-auth";
 function Imports() {
   const { isStudentAffairs, isAdmin } = useAuth();
+  const getRedTextFn = useServerFn(getRedTextStudents);
   const [parsing, setParsing] = useState(false);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [importing, setImporting] = useState(false);
@@ -489,6 +492,25 @@ function Imports() {
           toast.error("الملف لا يحتوي على أي صفحات");
           setParsing(false);
           return;
+        }
+
+        // Extract student names with red text color using exceljs server function
+        const redTextNamesNormalized = new Set<string>();
+        try {
+          const base64 = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => resolve((reader.result as string).split(",")[1]);
+            reader.onerror = reject;
+          });
+          const res = await getRedTextFn({ data: { fileBase64: base64 } });
+          if (res?.success && Array.isArray(res.redTextStudents)) {
+            res.redTextStudents.forEach(name => {
+              redTextNamesNormalized.add(sanitizeString(name));
+            });
+          }
+        } catch (colorErr) {
+          console.warn("Failed to extract red text colors:", colorErr);
         }
 
         // Fetch only current-year existing student codes and national IDs
@@ -661,6 +683,7 @@ function Imports() {
                 normalizedRow.student_code = studentCode;
               }
 
+              normalizedRow.is_new_student = redTextNamesNormalized.has(sanitizeString(cleanName));
               allRows.push(normalizedRow);
               sheetRowCount++;
             }
@@ -765,6 +788,7 @@ function Imports() {
         grade_id: r.grade_id ? String(r.grade_id) : null,
         class_id: r.class_id ? String(r.class_id) : null,
         archived_year: null,
+        is_new_student: !!r.is_new_student,
       };
       let existing: { id: string; student_code: string | null } | null = null;
       if (payload.student_code) {
@@ -806,7 +830,7 @@ function Imports() {
       localStorage.setItem("imported-student-ids", JSON.stringify(Array.from(persistedIds)));
       window.dispatchEvent(new Event("students-import-mark-updated"));
     }
-    await supabase.from("student_imports").insert({
+    await (supabase.from("student_imports") as any).insert({
       rows_total: preview.rows.length, rows_inserted: inserted, rows_updated: updated, rows_skipped: skipped,
       parser_version: IMPORT_PARSER_VERSION,
     });
@@ -932,7 +956,12 @@ function Imports() {
                 <tbody>
                   {preview.rows.slice(0, 50).map((r, i) => (
                     <tr key={i} className="border-t">
-                      <td className="px-2 py-1.5">{String(r.full_name ?? "—")}</td>
+                      <td className="px-2 py-1.5">
+                        {String(r.full_name ?? "—")}
+                        {r.is_new_student && (
+                          <Badge className="mr-1 bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30 text-[10px] py-0 px-1">جديد</Badge>
+                        )}
+                      </td>
                       <td className="px-2 py-1.5">{String(r.student_code ?? "—")}</td>
                       <td className="px-2 py-1.5 text-right">
                         <span className="text-muted-foreground text-[10px] block">

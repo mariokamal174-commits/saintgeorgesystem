@@ -23,6 +23,7 @@ function StudentsList() {
   const [q, setQ] = useState("");
   const [gradeId, setGradeId] = useState<string>("all");
   const [archivedFilter, setArchivedFilter] = useState<"current" | "archived" | "all">("current");
+  const [paymentFilter, setPaymentFilter] = useState<"all" | "paid" | "unpaid">("all");
   const [page, setPage] = useState(0);
   const PAGE = 25;
 
@@ -49,7 +50,7 @@ function StudentsList() {
   }, [grades]);
 
   const { data, refetch, isLoading } = useQuery({
-    queryKey: ["students", q, page, gradeId, archivedFilter],
+    queryKey: ["students", q, page, gradeId, archivedFilter, paymentFilter],
     queryFn: async () => {
       let qb = supabase.from("students").select("*, classes(name), grades(name), delivery_tracking(item, delivered)", { count: "exact" })
         .order("created_at", { ascending: false })
@@ -57,6 +58,9 @@ function StudentsList() {
       if (gradeId !== "all") qb = qb.eq("grade_id", gradeId);
       if (archivedFilter === "current") qb = qb.is("archived_year", null);
       else if (archivedFilter === "archived") qb = qb.not("archived_year", "is", null);
+      if ((isFinance || isAdmin) && paymentFilter !== "all") {
+        qb = qb.eq("payment_status", paymentFilter);
+      }
       if (q.trim()) {
         const term = `%${q.trim()}%`;
         qb = qb.or(`full_name.ilike.${term},student_code.ilike.${term},national_id.ilike.${term}`);
@@ -123,6 +127,9 @@ function StudentsList() {
     if (gradeId !== "all") qb = qb.eq("grade_id", gradeId);
     if (archivedFilter === "current") qb = qb.is("archived_year", null);
     else if (archivedFilter === "archived") qb = qb.not("archived_year", "is", null);
+    if ((isFinance || isAdmin) && paymentFilter !== "all") {
+      qb = qb.eq("payment_status", paymentFilter);
+    }
     const { data: all } = await qb;
     const rows = ((all ?? []) as any[]).slice();
     rows.sort((a, b) => {
@@ -144,18 +151,21 @@ function StudentsList() {
         </div>
         <div className="flex gap-2 flex-wrap">
           {(isStudentAffairs || isAdmin || isFinance) && (
-            <Button variant="outline" onClick={exportAll}><Download className="ml-2 h-4 w-4" />تصدير Excel</Button>
+            <Button variant="outline" onClick={exportAll} className="no-print"><Download className="ml-2 h-4 w-4" />تصدير Excel</Button>
+          )}
+          {(isFinance || isAdmin) && (
+            <Button variant="outline" onClick={() => window.print()} className="no-print"><Printer className="ml-2 h-4 w-4" />طباعة القائمة</Button>
           )}
           {(isStudentAffairs || isAdmin) && (
-            <Link to="/imports"><Button variant="outline"><Plus className="ml-2 h-4 w-4" />استيراد من Excel</Button></Link>
+            <Link to="/imports" className="no-print"><Button variant="outline"><Plus className="ml-2 h-4 w-4" />استيراد من Excel</Button></Link>
           )}
           {(isStudentAffairs || isAdmin) && (
-            <Link to="/students/new"><Button><Plus className="ml-2 h-4 w-4" />طالب جديد</Button></Link>
+            <Link to="/students/new" className="no-print"><Button><Plus className="ml-2 h-4 w-4" />طالب جديد</Button></Link>
           )}
         </div>
       </div>
 
-      <Card className="p-6 bg-secondary/5 border border-secondary/20">
+      <Card className="p-6 bg-secondary/5 border border-secondary/20 no-print">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <div className="text-sm text-muted-foreground">طباعة الصف الكامل</div>
@@ -184,7 +194,7 @@ function StudentsList() {
         </div>
       </Card>
 
-      <Card className="p-4">
+      <Card className="p-4 no-print">
         <div className="flex flex-col md:flex-row gap-3">
           <div className="relative flex-1">
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -212,6 +222,16 @@ function StudentsList() {
               <SelectItem value="all">الكل</SelectItem>
             </SelectContent>
           </Select>
+          {(isFinance || isAdmin) && (
+            <Select value={paymentFilter} onValueChange={(v) => { setPaymentFilter(v as any); setPage(0); }}>
+              <SelectTrigger className="md:w-44"><SelectValue placeholder="حالة السداد" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">كل حالات السداد</SelectItem>
+                <SelectItem value="paid">مسدد بالكامل</SelectItem>
+                <SelectItem value="unpaid">غير مسدد</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
         </div>
       </Card>
 
@@ -227,7 +247,7 @@ function StudentsList() {
                 <th className="px-4 py-3 text-right">المتبقي</th>
                 <th className="px-4 py-3 text-right">الملف</th>
                 <th className="px-4 py-3 text-right">الحالة</th>
-                <th className="px-4 py-3 text-right">طباعة</th>
+                <th className="px-4 py-3 text-right no-print">طباعة</th>
               </tr>
             </thead>
             <tbody>
@@ -238,7 +258,7 @@ function StudentsList() {
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap items-center gap-2">
                       <Link to="/students/$id" params={{ id: s.id }} className="font-medium hover:text-primary">{s.full_name}</Link>
-                      {isImportedInCurrentSession(s.id) && <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30">جديد</Badge>}
+                      {(isImportedInCurrentSession(s.id) || s.is_new_student) && <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30">جديد</Badge>}
                       {s.archived_year && <Badge variant="secondary" className="text-xs">{s.archived_year}</Badge>}
                       {s.transfer_out_type && <Badge variant="outline" className="text-xs">{s.transfer_out_type === "transfer" ? "محول" : "مسحوب"}</Badge>}
                     </div>
@@ -268,7 +288,7 @@ function StudentsList() {
                       ? <Badge className="bg-success text-success-foreground">مسدد بالكامل</Badge>
                       : <Badge variant="destructive">غير مسدد</Badge>}
                   </td>
-                  <td className="px-4 py-3 whitespace-nowrap">
+                  <td className="px-4 py-3 whitespace-nowrap no-print">
                     <div className="flex flex-wrap gap-2">
                       <Link to="/students/$id/print" params={{ id: s.id }}>
                         <Button size="sm" variant="outline"><Printer className="ml-2 h-4 w-4" />طباعة الطالب</Button>
@@ -286,13 +306,46 @@ function StudentsList() {
           </table>
         </div>
         {pages > 1 && (
-          <div className="flex items-center justify-between p-4 border-t">
+          <div className="flex items-center justify-between p-4 border-t no-print">
             <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage(p => p - 1)}>السابق</Button>
             <span className="text-sm text-muted-foreground">{page + 1} / {pages}</span>
             <Button variant="outline" size="sm" disabled={page + 1 >= pages} onClick={() => setPage(p => p + 1)}>التالي</Button>
           </div>
         )}
       </Card>
+
+      <style>{`
+        @media print {
+          /* اخفاء الأقسام غير الضرورية للطباعة */
+          aside, header, nav, .no-print, button, input, select, [role="combobox"], [role="listbox"] {
+            display: none !important;
+          }
+          main, .container, .space-y-6, .w-full, .max-w-7xl {
+            width: 100% !important;
+            max-width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+          .card, .border, .shadow-sm {
+            border: none !important;
+            box-shadow: none !important;
+            background: transparent !important;
+          }
+          table {
+            width: 100% !important;
+            border-collapse: collapse !important;
+          }
+          th, td {
+            border: 1px solid #cbd5e1 !important;
+            padding: 6px 10px !important;
+            text-align: right !important;
+            color: #000 !important;
+          }
+          thead th {
+            background-color: #f1f5f9 !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }

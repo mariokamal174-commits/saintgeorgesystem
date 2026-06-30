@@ -43,6 +43,7 @@ function NewStudent() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [isTransferredIn, setIsTransferredIn] = useState(false);
+  const [isNewStudent, setIsNewStudent] = useState(false);
   const [form, setForm] = useState({
     full_name: "", student_code: "", national_id: "",
     birth_date: "", birth_place: "", gender: "", religion: "",
@@ -63,6 +64,7 @@ function NewStudent() {
       national_id: parsed.data.national_id || null,
       birth_date: parsed.data.birth_date || null,
       is_transferred_in: isTransferredIn,
+      is_new_student: isNewStudent,
     };
     const { data, error } = await supabase.from("students").insert(payload).select("id").maybeSingle();
     setLoading(false);
@@ -89,9 +91,15 @@ function NewStudent() {
             <div className="space-y-2"><Label>محل الميلاد</Label><Input value={form.birth_place} onChange={upd("birth_place")} /></div>
             <div className="space-y-2"><Label>النوع</Label><Input value={form.gender} onChange={upd("gender")} placeholder="ولد / بنت" /></div>
             <div className="space-y-2"><Label>الديانة</Label><Input value={form.religion} onChange={upd("religion")} /></div>
-            <div className="space-y-2 sm:col-span-2 flex items-center gap-3 pt-4">
-              <Checkbox id="trin" checked={isTransferredIn} onCheckedChange={(v) => setIsTransferredIn(!!v)} />
-              <Label htmlFor="trin" className="cursor-pointer">الطالب محول إلى المدرسة</Label>
+            <div className="space-y-2 sm:col-span-2 flex flex-wrap gap-6 pt-4">
+              <div className="flex items-center gap-3">
+                <Checkbox id="trin" checked={isTransferredIn} onCheckedChange={(v) => setIsTransferredIn(!!v)} />
+                <Label htmlFor="trin" className="cursor-pointer">الطالب محول إلى المدرسة</Label>
+              </div>
+              <div className="flex items-center gap-3">
+                <Checkbox id="isnew" checked={isNewStudent} onCheckedChange={(v) => setIsNewStudent(!!v)} />
+                <Label htmlFor="isnew" className="cursor-pointer">طالب جديد</Label>
+              </div>
             </div>
           </CardContent>
         </Card>

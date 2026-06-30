@@ -26,6 +26,7 @@ function EditStudent() {
   const navigate = useNavigate();
   const [form, setForm] = useState<Record<string, string>>({});
   const [isTransferredIn, setIsTransferredIn] = useState(false);
+  const [isNewStudent, setIsNewStudent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
@@ -56,6 +57,7 @@ function EditStudent() {
         other_fees: stringify(data.other_fees),
       });
       setIsTransferredIn(!!data.is_transferred_in);
+      setIsNewStudent(!!data.is_new_student);
       setLoaded(true);
     })();
   }, [id]);
@@ -89,6 +91,7 @@ function EditStudent() {
       previous_installments: Number(form.previous_installments) || 0,
       other_fees: Number(form.other_fees) || 0,
       is_transferred_in: isTransferredIn,
+      is_new_student: isNewStudent,
     };
     const { error } = await supabase.from("students").update(payload).eq("id", id);
     setLoading(false);
@@ -120,9 +123,15 @@ function EditStudent() {
             <div className="space-y-2"><Label>محل الميلاد</Label><Input value={form.birth_place} onChange={upd("birth_place")} /></div>
             <div className="space-y-2"><Label>النوع</Label><Input value={form.gender} onChange={upd("gender")} /></div>
             <div className="space-y-2"><Label>الديانة</Label><Input value={form.religion} onChange={upd("religion")} /></div>
-            <div className="space-y-2 sm:col-span-2 flex items-center gap-3 pt-4">
-              <Checkbox id="trin" checked={isTransferredIn} onCheckedChange={(v) => setIsTransferredIn(!!v)} />
-              <Label htmlFor="trin" className="cursor-pointer">الطالب محول إلى المدرسة</Label>
+            <div className="space-y-2 sm:col-span-2 flex flex-wrap gap-6 pt-4">
+              <div className="flex items-center gap-3">
+                <Checkbox id="trin" checked={isTransferredIn} onCheckedChange={(v) => setIsTransferredIn(!!v)} />
+                <Label htmlFor="trin" className="cursor-pointer">الطالب محول إلى المدرسة</Label>
+              </div>
+              <div className="flex items-center gap-3">
+                <Checkbox id="isnew" checked={isNewStudent} onCheckedChange={(v) => setIsNewStudent(!!v)} />
+                <Label htmlFor="isnew" className="cursor-pointer">طالب جديد</Label>
+              </div>
             </div>
           </CardContent>
         </Card>

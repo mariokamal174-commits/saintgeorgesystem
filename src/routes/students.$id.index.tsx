@@ -274,6 +274,7 @@ function StudentDetail() {
               {s.student_code ?? "بدون كود"} · {s.national_id ?? "بدون رقم قومي"} · السن: {formatAge(s.birth_date)}
             </p>
             <div className="flex gap-2 mt-1">
+              {s.is_new_student && <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30">طالب جديد</Badge>}
               {s.is_transferred_in && <Badge variant="outline">محول إلى المدرسة</Badge>}
               {s.transfer_out_type === "transfer" && <Badge className="bg-warning text-warning-foreground">محول (سُحب الملف)</Badge>}
               {s.transfer_out_type === "withdrawal" && <Badge variant="destructive">مسحوب</Badge>}

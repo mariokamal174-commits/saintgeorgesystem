@@ -79,7 +79,7 @@ function PrintGrade() {
         acc.remaining += Number(student.remaining_balance ?? 0) || 0;
         return acc;
       },
-      { totalDue: 0, totalPaid: 0, remaining: 0 },
+      { totalDue: 0, totalPaid: 0, remaining: 0 } as { totalDue: number; totalPaid: number; remaining: number },
     );
   }, [students]);
 

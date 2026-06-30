@@ -376,10 +376,12 @@ export type Database = {
           full_name: string
           gender: string | null
           grade_id: string | null
+          golden_batch_fees: number
           guardian_job: string | null
           guardian_name: string | null
           id: string
           is_transferred_in: boolean
+          is_new_student: boolean
           mother_name: string | null
           mother_national_id: string | null
           national_id: string | null
@@ -417,10 +419,12 @@ export type Database = {
           full_name: string
           gender?: string | null
           grade_id?: string | null
+          golden_batch_fees?: number
           guardian_job?: string | null
           guardian_name?: string | null
           id?: string
           is_transferred_in?: boolean
+          is_new_student?: boolean
           mother_name?: string | null
           mother_national_id?: string | null
           national_id?: string | null
@@ -457,10 +461,12 @@ export type Database = {
           full_name?: string
           gender?: string | null
           grade_id?: string | null
+          golden_batch_fees?: number
           guardian_job?: string | null
           guardian_name?: string | null
           id?: string
           is_transferred_in?: boolean
+          is_new_student?: boolean
           mother_name?: string | null
           mother_national_id?: string | null
           national_id?: string | null
