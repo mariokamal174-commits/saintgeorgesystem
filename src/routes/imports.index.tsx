@@ -175,7 +175,7 @@ function findGradeAndClass(
     // If the sheet includes an arrow (e.g. "k1 ← KG1"), prefer the right-hand segment (the canonical name)
       let sheetForMatch = String(sheetName ?? "");
       const normalizedSheetName = sanitizeString(sheetForMatch);
-      if (/(?:الاخوة|اخوة|محولين|محول|شؤون الطلبة|شؤون الطلاب|شؤون|الجملة|جملة|قائمة|قائمه|list|mob|id)/i.test(normalizedSheetName)) {
+      if (/(?:اخوه|ش[ؤئ]ون|جمله|محول|قايمه|موبايل|هاتف|list|mob|id|phone|mobile|contact)/i.test(normalizedSheetName)) {
         return { gradeId: null, classId: null, gradeName: null, className: null, isNoisy: true };
       }
       // If sheet looks like "(30 طالب) G2 ← KG2" (count + arrow), treat it as noisy and skip entirely
@@ -620,12 +620,11 @@ function Imports() {
             .replace(/\s+/g, " ")
             .trim();
 
-          // Skip sheets that look like exports or contact lists (contain id/mob/phone/list keywords)
-          if (/\b(id|mob|mobile|phone|phone number|contact|contacts|list|قائمة|موبايل|هاتف)\b/i.test(displayNameRaw)) {
-            continue;
-          }
-          // Also skip sheets that mention student affairs, summaries, siblings, or transfer lists
-          if (/(?:شؤون الطلبة|شؤون الطلاب|شؤون|الجملة|جملة|جمله|أخوة|الاخوة|محولين|محول|قائمة|list|mob|id)/i.test(displayNameRaw) || /(?:شؤون الطلبة|شؤون الطلاب|شؤون|الجملة|جملة|جمله|أخوة|الاخوة|محولين|محول|قائمة|list|mob|id)/i.test(cleanedDisplayName)) {
+          // Skip sheets that look like exports, contact lists, student affairs, summaries, siblings, or transfer lists
+          const sanitizedRaw = sanitizeString(displayNameRaw);
+          const sanitizedCleaned = sanitizeString(cleanedDisplayName);
+          if (/(?:اخوه|ش[ؤئ]ون|جمله|محول|قايمه|موبايل|هاتف|list|mob|id|phone|mobile|contact)/i.test(sanitizedRaw) || 
+              /(?:اخوه|ش[ؤئ]ون|جمله|محول|قايمه|موبايل|هاتف|list|mob|id|phone|mobile|contact)/i.test(sanitizedCleaned)) {
             continue;
           }
 

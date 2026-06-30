@@ -90,6 +90,19 @@ export const getRedTextStudents = createServerFn({ method: "POST" })
       for (const sheet of wb.worksheets) {
         if (!sheet.rowCount) continue;
 
+        const sheetName = sheet.name || "";
+        const sanitizedSheetName = sanitize(sheetName);
+
+        // Skip sheets that look like exports, contact lists, student affairs, summaries, siblings, or transfer lists
+        if (/(?:اخوه|ش[ؤئ]ون|جمله|محول|قايمه|موبايل|هاتف|list|mob|id|phone|mobile|contact)/i.test(sanitizedSheetName)) {
+          continue;
+        }
+
+        // Skip parenthesized counts with arrows
+        if (/\(\s*\d+\s*طالب\s*\).*←|←.*\(\s*\d+\s*طالب\s*\)/i.test(sheetName)) {
+          continue;
+        }
+
         // ── Step 1: find the name column ─────────────────────────────────
         // Strategy A: look for a recognised header label
         let nameColIdx = -1;
