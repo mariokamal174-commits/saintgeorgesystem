@@ -3,48 +3,45 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import * as ExcelJS from "exceljs";
 
 /**
- * Determines whether an ExcelJS font color is red.
+ * Returns true if the font color is red.
  * Excel stores red in multiple ways:
- *   1. ARGB "FFFF0000" or "FF0000" (standard hex red)
- *   2. Indexed color 3  (red in the default Excel color palette)
- *   3. Any ARGB where the red channel >> green and blue (e.g. dark reds)
+ *   1. ARGB string  e.g. "FFFF0000"
+ *   2. Indexed color 3  (the standard Excel palette red)
+ *   3. Any ARGB where red channel >> green + blue
  */
 function isFontColorRed(font: Partial<ExcelJS.Font> | undefined): boolean {
   if (!font) return false;
-
   const color = font.color as any;
   if (!color) return false;
 
-  // --- 1. Indexed color 3 is Excel's standard red ---
+  // Indexed color 3 = standard Excel red
   if (typeof color.indexed === "number" && color.indexed === 3) return true;
 
-  // --- 2. ARGB string check ---
   if (typeof color.argb === "string") {
     const argb = color.argb.toUpperCase().replace(/^#/, "");
-    // Full 8-char ARGB (AARRGGBB)
+    // 8-char AARRGGBB
     if (argb.length === 8) {
       const r = parseInt(argb.slice(2, 4), 16);
       const g = parseInt(argb.slice(4, 6), 16);
       const b = parseInt(argb.slice(6, 8), 16);
-      // Red dominant: red channel >= 200, green < 80, blue < 80
-      if (!isNaN(r) && !isNaN(g) && !isNaN(b) && r >= 200 && g < 80 && b < 80) return true;
-      // Exact standard reds
-      if (argb === "FFFF0000" || argb === "FF0000FF") return false; // blue guard
-      if (argb.endsWith("FF0000")) return true;
+      if (!isNaN(r) && r >= 180 && g < 100 && b < 100) return true;
     }
-    // Short 6-char RGB
+    // 6-char RRGGBB
     if (argb.length === 6) {
       const r = parseInt(argb.slice(0, 2), 16);
       const g = parseInt(argb.slice(2, 4), 16);
       const b = parseInt(argb.slice(4, 6), 16);
-      if (!isNaN(r) && !isNaN(g) && !isNaN(b) && r >= 200 && g < 80 && b < 80) return true;
+      if (!isNaN(r) && r >= 180 && g < 100 && b < 100) return true;
     }
   }
 
   return false;
 }
 
-const NAME_ALIASES = ["الاسم", "اسم الطالب", "name", "student_name", "fullname", "الاسم الكامل"];
+const NAME_HEADER_ALIASES = [
+  "الاسم", "اسم الطالب", "الاسم الكامل", "اسم الطالب كاملا",
+  "name", "student_name", "fullname", "full_name",
+];
 
 function sanitize(s: string): string {
   return s
@@ -57,8 +54,19 @@ function sanitize(s: string): string {
     .replace(/[\u064B-\u0652]/g, "");
 }
 
-function isHeaderValue(val: string): boolean {
-  return NAME_ALIASES.some((alias) => sanitize(alias) === sanitize(val));
+function isNameHeader(val: string): boolean {
+  const s = sanitize(val);
+  return NAME_HEADER_ALIASES.some((a) => sanitize(a) === s);
+}
+
+/** Heuristic: looks like an Arabic student name (at least 2 words, no digits) */
+function looksLikeName(val: string): boolean {
+  const trimmed = val.trim();
+  if (!trimmed || trimmed.length < 4) return false;
+  if (/\d/.test(trimmed)) return false;                           // has digits → not a name
+  if (/^[\d\s.,؟!:،]+$/.test(trimmed)) return false;             // only punctuation
+  const arabicLetters = (trimmed.match(/[\u0600-\u06FF]/g) || []).length;
+  return arabicLetters >= 4;                                      // at least 4 Arabic letters
 }
 
 export const getRedTextStudents = createServerFn({ method: "POST" })
@@ -77,43 +85,57 @@ export const getRedTextStudents = createServerFn({ method: "POST" })
       const redTextStudents = new Set<string>();
 
       for (const sheet of wb.worksheets) {
-        // ── Step 1: find which column holds student names ──────────────────
-        let nameColIdx = -1;
-        const scanLimit = Math.min(sheet.rowCount, 25);
+        if (!sheet.rowCount) continue;
 
-        for (let r = 1; r <= scanLimit; r++) {
+        // ── Step 1: find the column that holds student names ──────────────
+        // Strategy A: look for a header row with a known name alias
+        let nameColIdx = -1;
+        const headerScanLimit = Math.min(sheet.rowCount, 20);
+
+        for (let r = 1; r <= headerScanLimit && nameColIdx === -1; r++) {
           const row = sheet.getRow(r);
-          let found = false;
-          row.eachCell({ includeEmpty: false }, (cell, colNumber) => {
+          row.eachCell({ includeEmpty: false }, (cell, colNum) => {
             const val = String(cell.value ?? "").trim();
-            if (val && isHeaderValue(val)) {
-              nameColIdx = colNumber;
-              found = true;
+            if (val && isNameHeader(val)) {
+              nameColIdx = colNum;
             }
           });
-          if (found) break;
         }
 
-        // ── Step 2: scan every data row for red-font cells ─────────────────
+        // Strategy B: if no header found, find the column that has the most
+        // Arabic-looking values in the first 15 data rows
+        if (nameColIdx === -1) {
+          const colScores: Record<number, number> = {};
+          const dataScanLimit = Math.min(sheet.rowCount, 15);
+          for (let r = 1; r <= dataScanLimit; r++) {
+            const row = sheet.getRow(r);
+            row.eachCell({ includeEmpty: false }, (cell, colNum) => {
+              const val = String(cell.value ?? "").trim();
+              if (looksLikeName(val)) {
+                colScores[colNum] = (colScores[colNum] ?? 0) + 1;
+              }
+            });
+          }
+          const best = Object.entries(colScores).sort((a, b) => b[1] - a[1])[0];
+          if (best && Number(best[1]) >= 2) {
+            nameColIdx = Number(best[0]);
+          }
+        }
+
+        // ── Step 2: scan every row and check font color ───────────────────
         sheet.eachRow({ includeEmpty: false }, (row) => {
           if (nameColIdx !== -1) {
-            // Check the specific name column
+            // Check the detected name column only
             const cell = row.getCell(nameColIdx);
             const valStr = String(cell.value ?? "").trim();
-            if (valStr && !isHeaderValue(valStr) && isFontColorRed(cell.font)) {
+            if (valStr && looksLikeName(valStr) && isFontColorRed(cell.font)) {
               redTextStudents.add(valStr);
             }
           } else {
-            // Fallback: scan all cells in the row
+            // Last-resort: any Arabic-looking cell with red font
             row.eachCell({ includeEmpty: false }, (cell) => {
               const valStr = String(cell.value ?? "").trim();
-              if (
-                valStr &&
-                valStr.length > 2 &&
-                isNaN(Number(valStr)) &&
-                !isHeaderValue(valStr) &&
-                isFontColorRed(cell.font)
-              ) {
+              if (looksLikeName(valStr) && isFontColorRed(cell.font)) {
                 redTextStudents.add(valStr);
               }
             });
