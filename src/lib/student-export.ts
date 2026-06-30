@@ -32,7 +32,7 @@ type StudentRow = Record<string, unknown> & {
   archived_year?: string | null;
 };
 
-export function exportStudentsToExcel(rows: StudentRow[], filename = "students.xlsx", hideRemaining = false) {
+export function exportStudentsToExcel(rows: StudentRow[], filename = "students.xlsx", excludeFinance = false) {
   const data = rows.map((s) => {
     const rowObj: Record<string, any> = {
       "اسم الطالب": s.full_name ?? "",
@@ -51,22 +51,22 @@ export function exportStudentsToExcel(rows: StudentRow[], filename = "students.x
       "العنوان": s.address ?? "",
       "الهاتف 1": s.phone ?? "",
       "الهاتف 2": s.phone2 ?? "",
-      "القسط الأول": Number(s.first_installment ?? 0),
-      "القسط الثاني": Number(s.second_installment ?? 0),
-      "أقساط سابقة": Number(s.previous_installments ?? 0),
-      "رسوم أخرى": Number(s.other_fees ?? 0),
-      "الإجمالي": Number(s.total_due ?? 0),
-      "المدفوع": Number(s.total_paid ?? 0),
     };
 
-    if (!hideRemaining) {
+    if (!excludeFinance) {
+      rowObj["القسط الأول"] = Number(s.first_installment ?? 0);
+      rowObj["القسط الثاني"] = Number(s.second_installment ?? 0);
+      rowObj["أقساط سابقة"] = Number(s.previous_installments ?? 0);
+      rowObj["رسوم أخرى"] = Number(s.other_fees ?? 0);
+      rowObj["الإجمالي"] = Number(s.total_due ?? 0);
+      rowObj["المدفوع"] = Number(s.total_paid ?? 0);
       rowObj["المتبقي"] = Number(s.remaining_balance ?? 0);
+      rowObj["حالة السداد"] = s.payment_status === "paid" ? "مسدد بالكامل" : "غير مسدد";
     }
 
     rowObj["الصف / الفصل"] = String((s.classes as any)?.name ?? (s.grades as any)?.name ?? "");
-    rowObj["حالة السداد"] = s.payment_status === "paid" ? "مسدد بالكامل" : "غير مسدد";
     rowObj["محول للمدرسة"] = s.is_transferred_in ? "نعم" : "لا";
-    rowObj["اسم المدرسة المحول إليها"] = s.transfer_out_school ?? "",
+    rowObj["اسم المدرسة المحول إليها"] = s.transfer_out_school ?? "";
     rowObj["حالة سحب الملف"] = s.transfer_out_type === "transfer" ? "محول" : s.transfer_out_type === "withdrawal" ? "مسحوب" : "";
     rowObj["تاريخ سحب الملف"] = s.transfer_out_date ?? "";
     rowObj["السنة المؤرشفة"] = s.archived_year ?? "";

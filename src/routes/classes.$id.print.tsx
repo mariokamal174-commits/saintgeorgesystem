@@ -6,11 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Printer, ArrowRight } from "lucide-react";
 import { formatAge } from "@/lib/age";
+import { useAuth } from "@/hooks/use-auth";
 
 export const Route = createFileRoute("/classes/$id/print")({
   head: () => ({ meta: [{ title: "طباعة بيانات الفصل" }] }),
   component: PrintClass,
 });
+
+const FINANCIAL_KEYS = new Set(["total_due", "total_paid", "remaining_balance", "payment_status"]);
 
 const FIELDS: { key: string; label: string; format?: (value: unknown, student: Record<string, unknown>) => string }[] = [
   { key: "full_name", label: "اسم الطالب" },
@@ -48,9 +51,19 @@ function paymentStatusLabel(value: unknown) {
 
 function PrintClass() {
   const { id } = Route.useParams();
+  const { isStudentAffairs, isAdmin, isFinance } = useAuth();
+  const isStudentAffairsOnly = isStudentAffairs && !isAdmin && !isFinance;
+  const allowedFields = useMemo(
+    () => isStudentAffairsOnly ? FIELDS.filter(f => !FINANCIAL_KEYS.has(f.key)) : FIELDS,
+    [isStudentAffairsOnly]
+  );
   const [klass, setKlass] = useState<Record<string, unknown> | null>(null);
   const [students, setStudents] = useState<Record<string, unknown>[]>([]);
-  const [selected, setSelected] = useState<Set<string>>(new Set(FIELDS.map((f) => f.key)));
+  const [selected, setSelected] = useState<Set<string>>(new Set(allowedFields.map((f) => f.key)));
+
+  useEffect(() => {
+    setSelected(new Set(allowedFields.map(f => f.key)));
+  }, [isStudentAffairsOnly]);
 
   useEffect(() => {
     const classQuery = supabase.from("classes").select("*, grades(name)").eq("id", id).maybeSingle();
@@ -62,7 +75,7 @@ function PrintClass() {
     });
   }, [id]);
 
-  const visibleFields = useMemo(() => FIELDS.filter((field) => selected.has(field.key)), [selected]);
+  const visibleFields = useMemo(() => allowedFields.filter((field) => selected.has(field.key)), [selected, allowedFields]);
 
   const totals = useMemo(() => {
     return students.reduce(
@@ -114,7 +127,7 @@ function PrintClass() {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setSelected(new Set(FIELDS.map((f) => f.key)))}>اختر الكل</Button>
+          <Button variant="outline" onClick={() => setSelected(new Set(allowedFields.map((f) => f.key)))}>اختر الكل</Button>
           <Button variant="outline" onClick={() => setSelected(new Set())}>تفريغ</Button>
           <Button onClick={() => window.print()}><Printer className="ml-2 h-4 w-4" />طباعة / حفظ PDF</Button>
         </div>
@@ -123,7 +136,7 @@ function PrintClass() {
       <Card className="no-print">
         <CardHeader><CardTitle>اختر أعمدة الطلاب المراد طباعتها</CardTitle></CardHeader>
         <CardContent className="grid grid-cols-2 md:grid-cols-3 gap-2">
-          {FIELDS.map((field) => (
+          {allowedFields.map((field) => (
             <label key={field.key} className="flex items-center gap-2 cursor-pointer">
               <Checkbox checked={selected.has(field.key)} onCheckedChange={() => toggle(field.key)} />
               <span className="text-sm">{field.label}</span>

@@ -20,6 +20,7 @@ export const Route = createFileRoute("/students/")({
 
 function StudentsList() {
   const { isStudentAffairs, isAdmin, isFinance } = useAuth();
+  const isStudentAffairsOnly = isStudentAffairs && !isAdmin && !isFinance;
   const [q, setQ] = useState("");
   const [gradeId, setGradeId] = useState<string>("all");
   const [archivedFilter, setArchivedFilter] = useState<"current" | "archived" | "all">("current");
@@ -168,7 +169,7 @@ function StudentsList() {
       if (classCompare !== 0) return classCompare;
       return String(a.full_name ?? "").localeCompare(String(b.full_name ?? ""), "ar");
     });
-    exportStudentsToExcel(rows as never, "students.xlsx", isStudentAffairs);
+    exportStudentsToExcel(rows as never, "students.xlsx", isStudentAffairsOnly);
   }
 
   return (
@@ -281,15 +282,15 @@ function StudentsList() {
                 <th className="px-4 py-3 text-right">الكود</th>
                 <th className="px-4 py-3 text-right">السن (1/10)</th>
                 <th className="px-4 py-3 text-right">الفصل</th>
-                {!isStudentAffairs && <th className="px-4 py-3 text-right">المتبقي</th>}
+                {!isStudentAffairsOnly && <th className="px-4 py-3 text-right">المتبقي</th>}
                 <th className="px-4 py-3 text-right">الملف</th>
                 <th className="px-4 py-3 text-right">الحالة</th>
                 <th className="px-4 py-3 text-right no-print">طباعة</th>
               </tr>
             </thead>
             <tbody>
-              {isLoading && <tr><td colSpan={isStudentAffairs ? 7 : 8} className="text-center py-8 text-muted-foreground">جاري التحميل...</td></tr>}
-              {!isLoading && data?.rows.length === 0 && <tr><td colSpan={isStudentAffairs ? 7 : 8} className="text-center py-8 text-muted-foreground">لا يوجد طلاب</td></tr>}
+              {isLoading && <tr><td colSpan={isStudentAffairsOnly ? 7 : 8} className="text-center py-8 text-muted-foreground">جاري التحميل...</td></tr>}
+              {!isLoading && data?.rows.length === 0 && <tr><td colSpan={isStudentAffairsOnly ? 7 : 8} className="text-center py-8 text-muted-foreground">لا يوجد طلاب</td></tr>}
               {data?.rows.map((s: any) => (
                 <tr key={s.id} className="border-t hover:bg-muted/50">
                   <td className="px-4 py-3">
@@ -311,7 +312,7 @@ function StudentsList() {
                       s.classes?.name ?? s.grades?.name ?? "—"
                     )}
                   </td>
-                  {!isStudentAffairs && <td className="px-4 py-3 font-medium">{fmt(Number(s.remaining_balance))}</td>}
+                  {!isStudentAffairsOnly && <td className="px-4 py-3 font-medium">{fmt(Number(s.remaining_balance))}</td>}
                   <td className="px-4 py-3">
                     {(() => {
                       const d = (s.delivery_tracking ?? []).find((x: any) => x.item === "ملف الطالب");

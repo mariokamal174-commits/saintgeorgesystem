@@ -7,11 +7,17 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Printer, ArrowRight, Pencil } from "lucide-react";
 import { formatAge } from "@/lib/age";
+import { useAuth } from "@/hooks/use-auth";
 
 export const Route = createFileRoute("/students/$id/print")({
   head: () => ({ meta: [{ title: "طباعة بيانات الطالب" }] }),
   component: PrintStudent,
 });
+
+const FINANCIAL_KEYS = new Set([
+  "first_installment", "second_installment", "previous_installments",
+  "other_fees", "total_due", "total_paid", "remaining_balance",
+]);
 
 const FIELDS: { key: string; label: string; format?: (v: unknown, s: Record<string, unknown>) => string }[] = [
   { key: "full_name", label: "اسم الطالب" },
@@ -43,8 +49,18 @@ const FIELDS: { key: string; label: string; format?: (v: unknown, s: Record<stri
 function PrintStudent() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
+  const { isStudentAffairs, isAdmin, isFinance } = useAuth();
+  const isStudentAffairsOnly = isStudentAffairs && !isAdmin && !isFinance;
+  const allowedFields = useMemo(
+    () => isStudentAffairsOnly ? FIELDS.filter(f => !FINANCIAL_KEYS.has(f.key)) : FIELDS,
+    [isStudentAffairsOnly]
+  );
   const [student, setStudent] = useState<Record<string, unknown> | null>(null);
-  const [selected, setSelected] = useState<Set<string>>(new Set(FIELDS.map(f => f.key)));
+  const [selected, setSelected] = useState<Set<string>>(new Set(allowedFields.map(f => f.key)));
+
+  useEffect(() => {
+    setSelected(new Set(allowedFields.map(f => f.key)));
+  }, [isStudentAffairsOnly]);
 
   useEffect(() => {
     supabase.from("students").select("*").eq("id", id).maybeSingle()
@@ -79,7 +95,7 @@ function PrintStudent() {
           <Link to="/students/$id/edit" params={{ id }} search={{ from: "print" }}>
             <Button variant="outline"><Pencil className="ml-2 h-4 w-4" />تعديل البيانات</Button>
           </Link>
-          <Button variant="outline" onClick={() => setSelected(new Set(FIELDS.map(f => f.key)))}>اختر الكل</Button>
+          <Button variant="outline" onClick={() => setSelected(new Set(allowedFields.map(f => f.key)))}>اختر الكل</Button>
           <Button variant="outline" onClick={() => setSelected(new Set())}>تفريغ</Button>
           <Button onClick={() => window.print()}><Printer className="ml-2 h-4 w-4" />طباعة / حفظ PDF</Button>
         </div>
@@ -88,7 +104,7 @@ function PrintStudent() {
       <Card className="no-print">
         <CardHeader><CardTitle>اختر البيانات المراد طباعتها</CardTitle></CardHeader>
         <CardContent className="grid grid-cols-2 md:grid-cols-3 gap-2">
-          {FIELDS.map(f => (
+          {allowedFields.map(f => (
             <label key={f.key} className="flex items-center gap-2 cursor-pointer">
               <Checkbox checked={selected.has(f.key)} onCheckedChange={() => toggle(f.key)} />
               <span className="text-sm">{f.label}</span>

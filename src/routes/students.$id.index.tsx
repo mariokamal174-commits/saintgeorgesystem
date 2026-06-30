@@ -32,6 +32,8 @@ function StudentDetail() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
   const { isFinance, isAdmin, isStudentAffairs } = useAuth();
+  const isStudentAffairsOnly = isStudentAffairs && !isAdmin && !isFinance;
+  const showFinancials = !isStudentAffairsOnly;
   const canEditInstallments = isFinance || isAdmin;
   const canEditDelivery = isStudentAffairs || isAdmin;
   const canEditStudent = isStudentAffairs || isAdmin;
@@ -344,67 +346,80 @@ function StudentDetail() {
         </div>
       </div>
 
-      <div className={`grid grid-cols-1 md:grid-cols-${isStudentAffairs && !isAdmin && !isFinance ? 3 : 4} gap-4`}>
-        <StatCard label="إجمالي المستحق" value={fmt(Number(s.total_due))} />
-        <StatCard label="إجمالي المدفوع" value={fmt(Number(s.total_paid))} tone="success" />
-        {!(isStudentAffairs && !isAdmin && !isFinance) && (
-          <StatCard label="المتبقي" value={fmt(Math.max(Number(s.remaining_balance), 0))} tone={Number(s.remaining_balance) > 0 ? "warning" : "success"} />
-        )}
+      {showFinancials && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <StatCard label="\u0625\u062c\u0645\u0627\u0644\u064a \u0627\u0644\u0645\u0633\u062a\u062d\u0642" value={fmt(Number(s.total_due))} />
+          <StatCard label="\u0625\u062c\u0645\u0627\u0644\u064a \u0627\u0644\u0645\u062f\u0641\u0648\u0639" value={fmt(Number(s.total_paid))} tone="success" />
+          <StatCard label="\u0627\u0644\u0645\u062a\u0628\u0642\u064a" value={fmt(Math.max(Number(s.remaining_balance), 0))} tone={Number(s.remaining_balance) > 0 ? "warning" : "success"} />
+          <Card><CardContent className="p-4">
+            <div className="text-sm text-muted-foreground mb-2">\u0627\u0644\u062d\u0627\u0644\u0629</div>
+            <div className="flex items-center justify-between gap-3">
+              {effectivePaid
+                ? <Badge className="bg-success text-success-foreground text-base">\u0645\u0633\u062f\u062f \u0628\u0627\u0644\u0643\u0627\u0645\u0644</Badge>
+                : <Badge variant="destructive" className="text-base">\u063a\u064a\u0631 \u0645\u0633\u062f\u062f</Badge>}
+              {canEditInstallments && (
+                <Switch checked={effectivePaid} disabled={savingPayment} onCheckedChange={handlePaymentStatusClick} aria-label="\u062a\u063a\u064a\u064a\u0631 \u062d\u0627\u0644\u0629 \u0627\u0644\u0633\u062f\u0627\u062f" />
+              )}
+            </div>
+          </CardContent></Card>
+        </div>
+      )}
+
+      {isStudentAffairsOnly && (
         <Card><CardContent className="p-4">
-          <div className="text-sm text-muted-foreground mb-2">الحالة</div>
-          <div className="flex items-center justify-between gap-3">
+          <div className="text-sm text-muted-foreground mb-2">\u062d\u0627\u0644\u0629 \u0627\u0644\u0633\u062f\u0627\u062f</div>
+          <div>
             {effectivePaid
-              ? <Badge className="bg-success text-success-foreground text-base">مسدد بالكامل</Badge>
-              : <Badge variant="destructive" className="text-base">غير مسدد</Badge>}
-            {canEditInstallments && (
-              <Switch checked={effectivePaid} disabled={savingPayment} onCheckedChange={handlePaymentStatusClick} aria-label="تغيير حالة السداد" />
-            )}
+              ? <Badge className="bg-success text-success-foreground text-base">\u0645\u0633\u062f\u062f \u0628\u0627\u0644\u0643\u0627\u0645\u0644</Badge>
+              : <Badge variant="destructive" className="text-base">\u063a\u064a\u0631 \u0645\u0633\u062f\u062f</Badge>}
           </div>
         </CardContent></Card>
-      </div>
+      )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card>
-          <CardHeader><CardTitle>تفاصيل الأقساط</CardTitle></CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            <Row label="القسط الأول (مع الرسوم)" value={fmt(Number(s.first_installment))} status={installmentStatus("القسط الأول")} />
-            <Row label="رسوم النشاط" value={fmt(activityFees)} />
-            <Row label="القسط الثاني" value={fmt(Number(s.second_installment))} status={installmentStatus("القسط الثاني")} />
-            <Row label="أقساط سنوات سابقة" value={fmt(Number(s.previous_installments))} status={installmentStatus("أقساط سنوات سابقة")} />
-            <Row label="رسوم أخرى" value={fmt(Number(s.other_fees))} />
-            <div className="border-t pt-2 mt-2 flex justify-between font-bold">
-              <span>الإجمالي مع الرسوم</span><span>{fmt(Number(s.first_installment) + Number(s.second_installment) + Number(s.previous_installments) + Number(s.other_fees) + activityFees)}</span>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader><CardTitle>الإيصالات</CardTitle></CardHeader>
-          <CardContent>
-            {data.receipts.length === 0 ? <p className="text-sm text-muted-foreground">لا توجد إيصالات بعد</p> : (
-              <div className="space-y-2">
-                {data.receipts.map(r => (
-                  <div
-                    key={r.id}
-                    onClick={() => setSelectedReceipt(r)}
-                    className="flex items-center justify-between p-2 rounded-md bg-muted/50 cursor-pointer hover:bg-muted transition-colors"
-                  >
-                    <div>
-                      <div className="font-medium text-sm">إيصال #{r.receipt_number ?? r.id.slice(0, 8)}</div>
-                      <div className="text-xs text-muted-foreground">{r.receipt_date ?? "—"}</div>
-                    </div>
-                    <div className="text-left">
-                      <div className="font-bold">{fmt(Number(r.amount))}</div>
-                      {r.status === "approved" && <Badge variant="outline" className="text-success border-success">معتمد</Badge>}
-                      {r.status === "pending" && <Badge variant="outline">قيد المراجعة</Badge>}
-                      {r.status === "rejected" && <Badge variant="destructive">مرفوض</Badge>}
-                    </div>
-                  </div>
-                ))}
+      {showFinancials && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Card>
+            <CardHeader><CardTitle>تفاصيل الأقساط</CardTitle></CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              <Row label="القسط الأول (مع الرسوم)" value={fmt(Number(s.first_installment))} status={installmentStatus("القسط الأول")} />
+              <Row label="رسوم النشاط" value={fmt(activityFees)} />
+              <Row label="القسط الثاني" value={fmt(Number(s.second_installment))} status={installmentStatus("القسط الثاني")} />
+              <Row label="أقساط سنوات سابقة" value={fmt(Number(s.previous_installments))} status={installmentStatus("أقساط سنوات سابقة")} />
+              <Row label="رسوم أخرى" value={fmt(Number(s.other_fees))} />
+              <div className="border-t pt-2 mt-2 flex justify-between font-bold">
+                <span>الإجمالي مع الرسوم</span><span>{fmt(Number(s.first_installment) + Number(s.second_installment) + Number(s.previous_installments) + Number(s.other_fees) + activityFees)}</span>
               </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader><CardTitle>الإيصالات</CardTitle></CardHeader>
+            <CardContent>
+              {data.receipts.length === 0 ? <p className="text-sm text-muted-foreground">لا توجد إيصالات بعد</p> : (
+                <div className="space-y-2">
+                  {data.receipts.map(r => (
+                    <div
+                      key={r.id}
+                      onClick={() => setSelectedReceipt(r)}
+                      className="flex items-center justify-between p-2 rounded-md bg-muted/50 cursor-pointer hover:bg-muted transition-colors"
+                    >
+                      <div>
+                        <div className="font-medium text-sm">إيصال #{r.receipt_number ?? r.id.slice(0, 8)}</div>
+                        <div className="text-xs text-muted-foreground">{r.receipt_date ?? "—"}</div>
+                      </div>
+                      <div className="text-left">
+                        <div className="font-bold">{fmt(Number(r.amount))}</div>
+                        {r.status === "approved" && <Badge variant="outline" className="text-success border-success">معتمد</Badge>}
+                        {r.status === "pending" && <Badge variant="outline">قيد المراجعة</Badge>}
+                        {r.status === "rejected" && <Badge variant="destructive">مرفوض</Badge>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       <Card>
         <CardHeader><CardTitle>بيانات الطالب التفصيلية</CardTitle></CardHeader>
@@ -428,56 +443,58 @@ function StudentDetail() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader><CardTitle>أقساط مفصلة</CardTitle></CardHeader>
-        <CardContent>
-          {data.installments.length === 0 ? <p className="text-sm text-muted-foreground">لا توجد أقساط مسجلة</p> : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="text-muted-foreground">
-                  <tr>
-                    <th className="px-3 py-2 text-right">القسط</th>
-                    <th className="px-3 py-2 text-right">المبلغ</th>
-                    <th className="px-3 py-2 text-right">تاريخ الاستحقاق</th>
-                    <th className="px-3 py-2 text-right">الحالة</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.installments.map((i) => (
-                    <tr key={i.id} className="border-t">
-                      <td className="px-3 py-2 font-medium">{i.label}</td>
-                      <td className="px-3 py-2">{fmt(Number(i.amount))}</td>
-                      <td className="px-3 py-2 text-muted-foreground">{i.due_date ?? "—"}</td>
-                      <td className="px-3 py-2">
-                        {canEditInstallments ? (
-                          <div className="flex items-center gap-2">
-                            <Switch checked={i.status === "paid"}
-                              onCheckedChange={async (checked) => {
-                                const next = checked ? "paid" : "unpaid";
-                                const { error } = await supabase.from("installments")
-                                  .update({ status: next, paid_amount: checked ? Number(i.amount) : 0 })
-                                  .eq("id", i.id);
-                                if (error) toast.error(error.message);
-                                else {
-                                  toast.success("تم تحديث حالة القسط");
-                                  logActivity("تحديث", "قسط", i.id, { student_name: s.full_name, item: i.label, status: next, amount: Number(i.amount) });
-                                  refetch();
-                                }
-                              }} />
-                            <span className="text-sm">{i.status === "paid" ? "مدفوع" : "غير مدفوع"}</span>
-                          </div>
-                        ) : (i.status === "paid"
-                          ? <Badge className="bg-success text-success-foreground">مدفوع</Badge>
-                          : <Badge variant="destructive">غير مدفوع</Badge>)}
-                      </td>
+      {showFinancials && (
+        <Card>
+          <CardHeader><CardTitle>أقساط مفصلة</CardTitle></CardHeader>
+          <CardContent>
+            {data.installments.length === 0 ? <p className="text-sm text-muted-foreground">لا توجد أقساط مسجلة</p> : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="text-muted-foreground">
+                    <tr>
+                      <th className="px-3 py-2 text-right">القسط</th>
+                      <th className="px-3 py-2 text-right">المبلغ</th>
+                      <th className="px-3 py-2 text-right">تاريخ الاستحقاق</th>
+                      <th className="px-3 py-2 text-right">الحالة</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                  </thead>
+                  <tbody>
+                    {data.installments.map((i) => (
+                      <tr key={i.id} className="border-t">
+                        <td className="px-3 py-2 font-medium">{i.label}</td>
+                        <td className="px-3 py-2">{fmt(Number(i.amount))}</td>
+                        <td className="px-3 py-2 text-muted-foreground">{i.due_date ?? "—"}</td>
+                        <td className="px-3 py-2">
+                          {canEditInstallments ? (
+                            <div className="flex items-center gap-2">
+                              <Switch checked={i.status === "paid"}
+                                onCheckedChange={async (checked) => {
+                                  const next = checked ? "paid" : "unpaid";
+                                  const { error } = await supabase.from("installments")
+                                    .update({ status: next, paid_amount: checked ? Number(i.amount) : 0 })
+                                    .eq("id", i.id);
+                                  if (error) toast.error(error.message);
+                                  else {
+                                    toast.success("تم تحديث حالة القسط");
+                                    logActivity("تحديث", "قسط", i.id, { student_name: s.full_name, item: i.label, status: next, amount: Number(i.amount) });
+                                    refetch();
+                                  }
+                                }} />
+                              <span className="text-sm">{i.status === "paid" ? "مدفوع" : "غير مدفوع"}</span>
+                            </div>
+                          ) : (i.status === "paid"
+                            ? <Badge className="bg-success text-success-foreground">مدفوع</Badge>
+                            : <Badge variant="destructive">غير مدفوع</Badge>)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <DeliveryCard
         studentId={id}
