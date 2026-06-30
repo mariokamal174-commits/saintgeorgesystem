@@ -14,7 +14,7 @@ export const Route = createFileRoute("/grades/$id/print")({
   component: PrintGrade,
 });
 
-const FINANCIAL_KEYS = new Set(["total_due", "total_paid", "remaining_balance", "payment_status"]);
+const FINANCIAL_KEYS = new Set(["total_due", "total_paid", "remaining_balance"]);
 
 const FIELDS: { key: string; label: string; format?: (value: unknown, student: Record<string, unknown>) => string }[] = [
   { key: "full_name", label: "اسم الطالب" },

@@ -61,8 +61,8 @@ export function exportStudentsToExcel(rows: StudentRow[], filename = "students.x
       rowObj["الإجمالي"] = Number(s.total_due ?? 0);
       rowObj["المدفوع"] = Number(s.total_paid ?? 0);
       rowObj["المتبقي"] = Number(s.remaining_balance ?? 0);
-      rowObj["حالة السداد"] = s.payment_status === "paid" ? "مسدد بالكامل" : "غير مسدد";
     }
+    rowObj["حالة السداد"] = s.payment_status === "paid" ? "مسدد بالكامل" : "غير مسدد";
 
     rowObj["الصف / الفصل"] = String((s.classes as any)?.name ?? (s.grades as any)?.name ?? "");
     rowObj["محول للمدرسة"] = s.is_transferred_in ? "نعم" : "لا";

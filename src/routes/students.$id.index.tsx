@@ -348,17 +348,17 @@ function StudentDetail() {
 
       {showFinancials && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <StatCard label="\u0625\u062c\u0645\u0627\u0644\u064a \u0627\u0644\u0645\u0633\u062a\u062d\u0642" value={fmt(Number(s.total_due))} />
-          <StatCard label="\u0625\u062c\u0645\u0627\u0644\u064a \u0627\u0644\u0645\u062f\u0641\u0648\u0639" value={fmt(Number(s.total_paid))} tone="success" />
-          <StatCard label="\u0627\u0644\u0645\u062a\u0628\u0642\u064a" value={fmt(Math.max(Number(s.remaining_balance), 0))} tone={Number(s.remaining_balance) > 0 ? "warning" : "success"} />
+          <StatCard label="إجمالي المستحق" value={fmt(Number(s.total_due))} />
+          <StatCard label="إجمالي المدفوع" value={fmt(Number(s.total_paid))} tone="success" />
+          <StatCard label="المتبقي" value={fmt(Math.max(Number(s.remaining_balance), 0))} tone={Number(s.remaining_balance) > 0 ? "warning" : "success"} />
           <Card><CardContent className="p-4">
-            <div className="text-sm text-muted-foreground mb-2">\u0627\u0644\u062d\u0627\u0644\u0629</div>
+            <div className="text-sm text-muted-foreground mb-2">الحالة</div>
             <div className="flex items-center justify-between gap-3">
               {effectivePaid
-                ? <Badge className="bg-success text-success-foreground text-base">\u0645\u0633\u062f\u062f \u0628\u0627\u0644\u0643\u0627\u0645\u0644</Badge>
-                : <Badge variant="destructive" className="text-base">\u063a\u064a\u0631 \u0645\u0633\u062f\u062f</Badge>}
+                ? <Badge className="bg-success text-success-foreground text-base">مسدد بالكامل</Badge>
+                : <Badge variant="destructive" className="text-base">غير مسدد</Badge>}
               {canEditInstallments && (
-                <Switch checked={effectivePaid} disabled={savingPayment} onCheckedChange={handlePaymentStatusClick} aria-label="\u062a\u063a\u064a\u064a\u0631 \u062d\u0627\u0644\u0629 \u0627\u0644\u0633\u062f\u0627\u062f" />
+                <Switch checked={effectivePaid} disabled={savingPayment} onCheckedChange={handlePaymentStatusClick} aria-label="تغيير حالة السداد" />
               )}
             </div>
           </CardContent></Card>
@@ -367,11 +367,11 @@ function StudentDetail() {
 
       {isStudentAffairsOnly && (
         <Card><CardContent className="p-4">
-          <div className="text-sm text-muted-foreground mb-2">\u062d\u0627\u0644\u0629 \u0627\u0644\u0633\u062f\u0627\u062f</div>
+          <div className="text-sm text-muted-foreground mb-2">حالة السداد</div>
           <div>
             {effectivePaid
-              ? <Badge className="bg-success text-success-foreground text-base">\u0645\u0633\u062f\u062f \u0628\u0627\u0644\u0643\u0627\u0645\u0644</Badge>
-              : <Badge variant="destructive" className="text-base">\u063a\u064a\u0631 \u0645\u0633\u062f\u062f</Badge>}
+              ? <Badge className="bg-success text-success-foreground text-base">مسدد بالكامل</Badge>
+              : <Badge variant="destructive" className="text-base">غير مسدد</Badge>}
           </div>
         </CardContent></Card>
       )}
